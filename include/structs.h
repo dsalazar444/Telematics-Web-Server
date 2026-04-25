@@ -21,10 +21,10 @@ typedef struct {
     size_t count;
 } HTTPHeaders;
 
-struct HTTPRequest {
+typedef struct {
     HTTPMethod method;
     char path[256];
     HTTPHeaders headers;
     unsigned char *body;
     char version[10];
-};
+} HTTPRequest;
