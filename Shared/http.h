@@ -1,7 +1,7 @@
 #ifndef HTTP_H
 #define HTTP_H
 
-#include "socket.h"  // para Socket*
+#include "ISocket.h"  // para Socket*
 
 // Nodo del cluster
 typedef struct {
