@@ -1,0 +1,12 @@
+#ifndef FILE_MANAGER_UTILS_H
+#define FILE_MANAGER_UTILS_H
+
+#include "FileManagerTypes.h" //Porque necesitamos constante MAX_PATH_LEN
+#include <sys/stat.h>         //Porque usamos struct stat
+
+void FileManagerSetRoot(const char* root);
+int  BuildRealPath(const char* absPath, char* outPath);
+void GetMimeType(const char* path, char* outMime);
+void GetLastModified(const struct stat* pathStat, char* outDate);
+
+#endif

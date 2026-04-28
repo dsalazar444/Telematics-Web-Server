@@ -1,7 +1,7 @@
-#ifndef FILEMANAGER_H
-#define FILEMANAGER_H
+#ifndef FILE_MANAGER_H
+#define FILE_MANAGER_H
 
-#include <stddef.h>
+#include <stddef.h> // para size_t
 
 typedef struct FileResult FileResult; 
 
