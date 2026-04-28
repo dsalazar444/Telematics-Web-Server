@@ -1,4 +1,4 @@
-#include "uri_parser.h"
+#include "UriParser.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -8,10 +8,10 @@ ParsedURI UriParse(const char* rawUri) {
     result._absPath[0] = '\0';
     result._query[0]   = '\0';
     result._isValid    = 0;
-    result._statusCode = 400;
+    result._statusCode = 0;
 
     if (!ValidateLength(rawUri)) {
-        result._statusCode = 400;
+        result._statusCode = 414;  // URI Too Long
         return result;
     }
 
@@ -30,7 +30,7 @@ ParsedURI UriParse(const char* rawUri) {
     }
 
     result._isValid    = 1;
-    result._statusCode = 200;
+    result._statusCode = 0;  // 0 = sin error (parsing válido)
     return result;
 }
 
