@@ -1,7 +1,7 @@
 #ifndef SOCKET_H
 #define SOCKET_H
 
-#include "../../Shared/ISocket.h" // Para los tipos usados en los prototipos
+#include "../../Includes/ISocket.h" // Para los tipos usados en los prototipos
 
 int CreateDualStackSocket();
 int BindSocket(ISocketListener *self, const char *host, int port);

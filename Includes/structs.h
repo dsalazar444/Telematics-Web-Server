@@ -1,4 +1,4 @@
-#include <cstddef>
+#include <stddef.h>
 
 typedef enum {
     GET,
@@ -28,3 +28,10 @@ typedef struct {
     unsigned char *body;
     char version[10];
 } HTTPRequest;
+
+typedef struct {
+    int  port;
+    int  ttl;
+    char backends[10][64];
+    int  backend_count;
+} Config;

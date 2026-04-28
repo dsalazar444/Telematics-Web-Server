@@ -1,7 +1,8 @@
-#include "Shared/ISocket.h"
+#include "Includes/ISocket.h"
 #include "modules/Socket/Socket.h"
 #include <stdio.h>
 #include <pthread.h>
+#include "Config/Config.h"
 
 void* worker(void* arg) {
     IClientSocket* client = (IClientSocket*)arg;
@@ -17,24 +18,21 @@ void* worker(void* arg) {
 }
 
 int main() {
-    int port = 9090; // Puedes cambiarlo o leerlo de config después
+
+    Config config = LoadConfig("proxy.config"); 
 
     ISocketListener listener;
     listener.fd = CreateDualStackSocket();
     if (listener.fd < 0) return 1;
 
-    if (BindSocket(&listener, "::", port) < 0) return 1;
+    if (BindSocket(&listener, "::", config.port) < 0) return 1;
     if (ListenSocket(&listener, 128) < 0) return 1;
 
-    printf("Servidor escuchando en puerto %d\n", port);
+    printf("Servidor escuchando en puerto %d\n", config.port);
 
     while (1) {
         IClientSocket* client = AcceptSocket(&listener);
-        if (!client) continue;
-
-        pthread_t tid;
-        pthread_create(&tid, NULL, worker, client);
-        pthread_detach(tid); // El hilo se limpia solo al terminar
+    
     }
     return 0;
 }
