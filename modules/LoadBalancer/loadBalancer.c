@@ -35,20 +35,22 @@ bool RequestBufferDequeue(RequestBuffer *buffer, HTTPRequest *request) {
     return true;
 }
 
-LoadBalancer loadBalancerCreate(IDBackendNode *nodes, uint16_t count) {
+LoadBalancer LoadBalancerCreate(IDBackendNode *nodes, uint8_t count) {
     LoadBalancer lb;
+    BackendNode *backend_nodes = malloc(sizeof(BackendNode) * count);
     for (uint8_t i = 0; i < count; i++) {
-        lb.backend_nodes[i].id = nodes[i];
-        lb.backend_nodes[i].active_connections = 0;
-        lb.backend_nodes[i].healthy = true;
+        backend_nodes[i].id = nodes[i];
+        backend_nodes[i].active_connections = 0;
+        backend_nodes[i].healthy = LoadBalancerHealthCheck(backend_nodes[i]);
     }
-    lb.backend_nodes = nodes;
+    lb.backend_nodes = backend_nodes;
     lb.backend_count = count;
     lb.rr_index = 0;
     return lb;
 }
 
-bool LoadBalancerCheckHealth(BackendNode node) {
-    IDBackendNode id = node.id;
-    return true; // Placeholder: Assume all nodes are healthy
+bool LoadBalancerHealthCheck(BackendNode node) {
+    uint8_t ip[16] = node.id.ip;
+    uint16_t port = node.id.port;
+    return true;
 }
