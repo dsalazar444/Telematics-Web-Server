@@ -28,3 +28,8 @@ typedef struct {
     unsigned char *body;
     char version[10];
 } HTTPRequest;
+
+typedef struct {
+    uint8_t ip[16];
+    uint16_t port;
+} IDBackendNode;

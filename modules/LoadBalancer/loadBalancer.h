@@ -6,8 +6,7 @@
 #define LOAD_BALANCER_H
 
 typedef struct BackendNode {
-    char ip[16];
-    uint16_t port;
+    IDBackendNode id;
     uint16_t active_connections;
     bool healthy;
 } BackendNode;
