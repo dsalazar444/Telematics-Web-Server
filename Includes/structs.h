@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <stdint.h>
 
 typedef enum {
     GET,
@@ -35,3 +36,9 @@ typedef struct {
     char backends[10][64];
     int  backend_count;
 } Config;
+
+typedef struct {
+    uint8_t ip[16];
+    uint16_t port;
+} IDBackendNode;
+
