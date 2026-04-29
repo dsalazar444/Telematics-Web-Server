@@ -6,6 +6,8 @@
 #include <string.h>
 #include <strings.h>
 #include "../../Includes/ISocket.h"
+#include "../../modules/Socket/Socket.h"
+#include "../../Includes/http.h"
 #include "../../modules/LoadBalancer/loadBalancer.h"
 
 typedef struct {
