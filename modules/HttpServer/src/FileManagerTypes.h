@@ -17,6 +17,7 @@ struct FileResult {
 
     // control de errores
     int _statusCode;        // 200, 201, 400, 403, 404, 500
+    // char _statusMessage
 };
 
 #endif

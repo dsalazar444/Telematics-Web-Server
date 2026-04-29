@@ -1,7 +1,7 @@
 #ifndef MESSAGEQUEUE_H
 #define MESSAGEQUEUE_H
 
-#include "../../../Shared/messages.h"
+#include "../../Includes/http.h"
 
 // struct de cola que contendrá ForwardRequestsMessage
 typedef struct MessageQueue MessageQueue; 
@@ -12,11 +12,11 @@ MessageQueue* QueueCreate(void);
 
 // Encola un mensaje en struct — lo llama el thread lector
 // Retorna 0 si éxito, -1 si falla
-int QueueEnqueue(MessageQueue* queue, ForwardRequestMessage* msg);
+int QueueEnqueue(MessageQueue* queue, HTTPRequest* msg);
 
 // Desencola el siguiente mensaje — lo llama el thread worker
 // Si está vacía, BLOQUEA hasta que llegue algo
-ForwardRequestMessage* QueueDequeue(MessageQueue* queue);
+HTTPRequest* QueueDequeue(MessageQueue* queue);
 
 // Cuántos mensajes hay actualmente
 int QueueSize(MessageQueue* queue);

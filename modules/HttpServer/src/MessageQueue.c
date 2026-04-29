@@ -4,7 +4,7 @@
 
 // Nodo de la lista enlazada
 typedef struct QueueNode {
-    ForwardRequestMessage* msg;
+    HTTPRequest* msg;
     struct QueueNode*      next;
 } QueueNode;
 
@@ -31,7 +31,7 @@ MessageQueue* QueueCreate(void) {
     return queue;
 }
 
-int QueueEnqueue(MessageQueue* queue, ForwardRequestMessage* msg) {
+int QueueEnqueue(MessageQueue* queue, HTTPRequest* msg) {
     QueueNode* node = malloc(sizeof(QueueNode));
     if (node == NULL) return -1;
 
@@ -57,7 +57,7 @@ int QueueEnqueue(MessageQueue* queue, ForwardRequestMessage* msg) {
     return 0;
 }
 
-ForwardRequestMessage* QueueDequeue(MessageQueue* queue) {
+HTTPRequest* QueueDequeue(MessageQueue* queue) {
     pthread_mutex_lock(&queue->_mutex); // antes de while porque obtendremos dato de queue (su size)
 
     // mientras esté vacía, dormirse y soltar el mutex
@@ -67,7 +67,7 @@ ForwardRequestMessage* QueueDequeue(MessageQueue* queue) {
 
     // sacar el nodo del frente
     QueueNode* node = queue->_head;
-    ForwardRequestMessage* msg  = node->msg;
+    HTTPRequest* msg  = node->msg;
 
     queue->_head = node->next; //Actualizamos head de queue, para que apunte a next de anterior node
     if (queue->_head == NULL) {
