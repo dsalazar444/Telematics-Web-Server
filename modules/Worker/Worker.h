@@ -10,6 +10,6 @@ typedef struct {
 } WorkerArgs;
 
 void* worker(void* arg);
-void ConnectToBackendAndForward(WorkerArgs *w, const char *request);
+void ConnectToBackendAndForward(WorkerArgs *w, const HTTPRequest *request);
 
 #endif

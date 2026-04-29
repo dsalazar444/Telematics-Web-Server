@@ -30,6 +30,7 @@ typedef struct {
     char path[256];
     HTTPHeaders headers;
     unsigned char *body;
+    size_t bodyLength; 
     char version[10];
 } HTTPRequest;
 
