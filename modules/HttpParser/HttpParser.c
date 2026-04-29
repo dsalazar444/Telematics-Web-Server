@@ -119,8 +119,8 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
             return NULL;
         }
 
-        memcpy(request->body, bodyStart, contentLength); // 🔥 CAMBIO
-        request->bodyLength = contentLength; // 🔥 CAMBIO
+        memcpy(request->body, bodyStart, contentLength); 
+        request->bodyLength = contentLength; 
     }
 
     return request;

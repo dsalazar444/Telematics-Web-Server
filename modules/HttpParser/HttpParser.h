@@ -3,7 +3,8 @@
 
 #include "../../Includes/structs.h"
 
-HTTPRequest **ParseHTTPRequest(const char *buffer, int headerSize, size_t contentLength);
+HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t contentLength);
+void PrintHttpRequest(const HTTPRequest *request);
 HTTPMethod ParseMethod(const char *method);
 
 #endif // HTTPPARSER_H
