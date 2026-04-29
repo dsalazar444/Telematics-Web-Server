@@ -26,8 +26,11 @@ int main()
 
     // Crear el LoadBalancer con los backends y el contador
     LoadBalancer *lb = LoadBalancerCreate(config.backends, config.backendCount);
-
     LoadBalancerPrint(lb);
+
+    pthread_t health_thread;
+    pthread_create(&health_thread, NULL, HealthCheckLoop, lb);
+    pthread_detach(health_thread); // dejar que corra independientemente
 
     while (1)
     {

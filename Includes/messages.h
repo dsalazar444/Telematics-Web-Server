@@ -2,33 +2,15 @@
 #define MESSAGES_H
 
 #include "structs.h"
-
-// Base de todos los mensajes
-typedef struct {
-    char msgId[37];      // UUID
-    char type[32];
-    long timestamp;
-    char senderId[64];
-} IMessage;
-
-// LB → WS
-typedef struct {
-    IMessage    base;
-    HttpRequest request;
-    BackendNode targetNode;
-    int         socketFd;
-    long        enqueuedAt;
-} ForwardRequestMessage;
+#include "LoadBalancer/loadBalancer.h"
 
 // WS → Caché/Proxy
 typedef struct {
-    IMessage     base;
-    HttpResponse response;
-    HttpRequest  originalRequest;
+    HTTPResponse response;
+    HTTPRequest  originalRequest;
     char         cacheKey[512];
-    int          shouldCache;
-    int          shouldReplicate;
-    int          socketFd;
-} BackendResponseMessage;
+    bool         shouldCache;
+    bool         shouldReplicate;
+} ProxyMessage;
 
 #endif

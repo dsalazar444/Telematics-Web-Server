@@ -1,4 +1,4 @@
-#include "../../Includes/structs.h"
+#include "HealthCheck.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <pthread.h>
@@ -6,11 +6,17 @@
 #ifndef LOAD_BALANCER_H
 #define LOAD_BALANCER_H
 
+typedef struct {
+    uint8_t ip[4];
+    uint16_t port;
+} IDBackendNode;
+
 typedef struct BackendNode {
     IDBackendNode id;
     uint16_t active_connections;
     bool healthy;
     uint16_t index; // Índice en el array del LoadBalancer
+    uint8_t failure_count; // Para health checks
 } BackendNode;
 
 typedef struct LoadBalancer {
@@ -23,7 +29,6 @@ typedef struct LoadBalancer {
 LoadBalancer* LoadBalancerCreate(char *nodes[], uint8_t count);
 IDBackendNode LoadBalancerParserNodeID(const char *node_str);
 BackendNode LoadBalancerSelectBackend(LoadBalancer *lb);
-bool LoadBalancerHealthCheck(BackendNode node);
 void FreeLoadBalancer(LoadBalancer *lb);
 void LoadBalancerPrint(LoadBalancer *lb);
 void IncrementActiveConnections(LoadBalancer *lb, BackendNode *node);

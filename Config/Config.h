@@ -1,7 +1,14 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include "../Includes/structs.h"
+#include <stdint.h>
+
+typedef struct  {
+    int  port;
+    int  ttl;
+    char** backends;
+    uint16_t  backendCount;
+} Config;
 
 Config LoadConfig(const char* filepath);
 void FreeConfig(Config *config);

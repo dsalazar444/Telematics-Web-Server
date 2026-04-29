@@ -33,17 +33,13 @@ typedef struct {
     char version[10];
 } HTTPRequest;
 
-typedef struct  {
-    int  port;
-    int  ttl;
-    char** backends;
-    uint16_t  backendCount;
-} Config;
-
 typedef struct {
-    uint8_t ip[4];
-    uint16_t port;
-} IDBackendNode;
+    int statusCode;
+    char statusMessage[64];
+    HTTPHeaders headers;
+    unsigned char *body;
+} HTTPResponse;
+
 
 #endif // STRUCTS_H
 

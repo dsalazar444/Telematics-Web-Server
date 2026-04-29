@@ -1,4 +1,5 @@
 #include "loadBalancer.h"
+#include "HealthCheck.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -8,7 +9,7 @@ LoadBalancer* LoadBalancerCreate(char *nodes[], uint8_t count) {
     for (uint8_t i = 0; i < count; i++) {
         backend_nodes[i].id = LoadBalancerParserNodeID(nodes[i]);
         backend_nodes[i].active_connections = 0;
-        backend_nodes[i].healthy = LoadBalancerHealthCheck(backend_nodes[i]);
+        backend_nodes[i].healthy = HealthCheckBackend(backend_nodes[i].id);
         backend_nodes[i].index = i; // Guardamos el índice para referencia futura
     }
     lb->backend_nodes = backend_nodes;
@@ -42,10 +43,6 @@ IDBackendNode LoadBalancerParserNodeID(const char *node_str) {
     node.port = (uint16_t)port;
 
     return node;
-}
-
-bool LoadBalancerHealthCheck(BackendNode node) {
-    return node.id.port > 0;
 }
 
 BackendNode LoadBalancerSelectBackend(LoadBalancer *lb){

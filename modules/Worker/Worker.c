@@ -46,7 +46,6 @@ void ConnectToBackendAndForward(WorkerArgs *w, const char *request){
     // 6. Reenviar la respuesta al cliente original usando SendToClient(w->client, ...)
     LoadBalancer *lb = w->lb;
     BackendNode backend = LoadBalancerSelectBackend(lb);
-    printf("Seleccionado backend: %u.%u.%u.%u:%u\n",
-        backend.id.ip[0], backend.id.ip[1], backend.id.ip[2], backend.id.ip[3],
-        backend.id.port);
+    // yo  genero el proxymessage
+    IncrementActiveConnections(lb, &backend);
 }
