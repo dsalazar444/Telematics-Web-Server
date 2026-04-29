@@ -2,7 +2,7 @@
 #include "../../Includes/structs.h"
 #include <stdlib.h>
 
-HTTPRequest *http_parse(const char *raw)
+HTTPRequest *HttpParse(const char *raw)
 {
 
     // Crear el HTTPRequest
@@ -35,7 +35,7 @@ HTTPRequest *http_parse(const char *raw)
         free(request);
         return NULL;
     }
-    request->method = parse_method(method);
+    request->method = ParseMethod(method);
 
     if (request->method == -1)
     {
@@ -80,19 +80,19 @@ HTTPRequest *http_parse(const char *raw)
         if (strcmp(request->headers.headers[i].key, "Content-Length") == 0)
         {
 
-            int body_len = atoi(request->headers.headers[i].value);
+            int bodyLen = atoi(request->headers.headers[i].value);
 
-            if (body_len > 0)
+            if (bodyLen > 0)
             {
                 // buscar donde empieza el body — después del \r\n\r\n
-                char *body_start = strstr(rawCopy, "\r\n\r\n");
-                if (body_start != NULL)
+                char *bodyStart = strstr(rawCopy, "\r\n\r\n");
+                if (bodyStart != NULL)
                 {
-                    body_start += 4; // salta el \r\n\r\n
+                    bodyStart += 4; // salta el \r\n\r\n
 
-                    request->body = malloc(body_len + 1);
-                    memcpy(request->body, body_start, body_len);
-                    request->body[body_len] = '\0';
+                    request->body = malloc(bodyLen + 1);
+                    memcpy(request->body, bodyStart, bodyLen);
+                    request->body[bodyLen] = '\0';
                 }
             }
             break;
@@ -103,7 +103,7 @@ HTTPRequest *http_parse(const char *raw)
     return request;
 }
 
-HTTPMethod parseMethod(const char *method_str)
+HTTPMethod ParseMethod(const char *method_str)
 {
     if (strcmp(method_str, "GET") == 0)
         return GET;
