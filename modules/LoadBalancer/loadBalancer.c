@@ -1,5 +1,4 @@
 #include "loadBalancer.h"
-#include "HealthCheck.h"
 #include <stdio.h>
 #include <stdlib.h>
 

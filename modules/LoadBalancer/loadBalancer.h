@@ -1,7 +1,7 @@
-#include "HealthCheck.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include "HealthCheck.h"
 
 #ifndef LOAD_BALANCER_H
 #define LOAD_BALANCER_H

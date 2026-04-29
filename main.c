@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include "Config/Config.h"
 #include "modules/LoadBalancer/loadBalancer.h"
+#include "modules/LoadBalancer/HealthCheck.h"
 #include "modules/Worker/Worker.h"
 #include <stdlib.h>
 

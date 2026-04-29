@@ -1,5 +1,4 @@
-#include "../../Includes/structs.h"
-#include "../../modules/LoadBalancer/loadBalancer.h"
+#include "HealthCheck.h"
 #include <unistd.h>
 #include <stdio.h>
 
