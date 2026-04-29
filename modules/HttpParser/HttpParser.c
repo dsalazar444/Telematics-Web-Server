@@ -1,37 +1,39 @@
 #include "HttpParser.h"
 #include "../../Includes/structs.h"
 #include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+#include <stdio.h>
 
-HTTPRequest *HttpParse(const char *raw)
+HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t contentLength)
 {
-
-    // Crear el HTTPRequest
     HTTPRequest *request = malloc(sizeof(HTTPRequest));
     if (request == NULL)
         return NULL;
     memset(request, 0, sizeof(HTTPRequest));
 
-    // Hacer una copia del raw para no modificar el original
-    char *rawCopy = strdup(raw);
-    if (rawCopy == NULL)
+    const char *headersEnd = buffer + headerSize; // 🔥 CAMBIO
+
+    const char *requestLineEnd = strstr(buffer, "\r\n");
+    if (requestLineEnd == NULL || requestLineEnd > headersEnd)
     {
         free(request);
         return NULL;
     }
 
-    // 3. Parsear la Request Line
-    char *requestLine = strtok(rawCopy, "\r\n");
-    if (requestLine == NULL)
+    char requestLine[1024];
+    size_t requestLineLen = (size_t)(requestLineEnd - buffer);
+    if (requestLineLen == 0 || requestLineLen >= sizeof(requestLine))
     {
-        free(rawCopy);
         free(request);
         return NULL;
     }
+    memcpy(requestLine, buffer, requestLineLen);
+    requestLine[requestLineLen] = '\0';
 
     char method[16] = {0};
-    if (sscanf(requestLine, "%s %s %s", method, request->path, request->version) != 3)
+    if (sscanf(requestLine, "%15s %255s %9s", method, request->path, request->version) != 3)
     {
-        free(rawCopy);
         free(request);
         return NULL;
     }
@@ -39,87 +41,108 @@ HTTPRequest *HttpParse(const char *raw)
 
     if (request->method == -1)
     {
-        free(rawCopy);
         free(request);
         return NULL;
     }
 
-    // 4. Parsear los Headers
+    char headers_copy[headerSize + 1];
+    memcpy(headers_copy, buffer, headerSize); 
+    headers_copy[headerSize] = '\0';
 
-    char *headerLine = strtok(NULL, "\r\n"); // siguiente línea
+    const char *lineStart = strstr(headers_copy, "\r\n") + 2; 
+    const char *headersEndCopy = headers_copy + headerSize;  
 
-    while (headerLine != NULL && strlen(headerLine) > 0)
+    while (lineStart < headersEndCopy)
     {
+        const char *lineEnd = strstr(lineStart, "\r\n");
+        if (lineEnd == NULL || lineEnd > headersEndCopy)
+        {
+            free(request);
+            return NULL;
+        }
+
+        if (lineEnd == lineStart)
+        {
+            break;
+        }
+
+        if (request->headers.count >= 100)
+        {
+            free(request);
+            return NULL;
+        }
 
         HTTPHeader *header = &request->headers.headers[request->headers.count];
 
-        // separar key y value por ": "
-        char *colon = strchr(headerLine, ':');
+        const char *colon = memchr(lineStart, ':', (size_t)(lineEnd - lineStart));
         if (colon != NULL)
         {
-            // copiar key
-            int keyLen = colon - headerLine;
-            strncpy(header->key, headerLine, keyLen);
+            size_t keyLen = (size_t)(colon - lineStart);
+            if (keyLen >= sizeof(header->key))
+            {
+                keyLen = sizeof(header->key) - 1;
+            }
+            memcpy(header->key, lineStart, keyLen);
             header->key[keyLen] = '\0';
 
-            // copiar value — salta ": " (dos caracteres)
-            strncpy(header->value, colon + 2, sizeof(header->value) - 1);
+            const char *valueStart = colon + 1;
+            while (valueStart < lineEnd && (*valueStart == ' ' || *valueStart == '\t'))
+            {
+                valueStart++;
+            }
+
+            size_t valueLen = (size_t)(lineEnd - valueStart);
+            if (valueLen >= sizeof(header->value))
+            {
+                valueLen = sizeof(header->value) - 1;
+            }
+            memcpy(header->value, valueStart, valueLen);
+            header->value[valueLen] = '\0';
 
             request->headers.count++;
         }
 
-        headerLine = strtok(NULL, "\r\n"); // siguiente header
+        lineStart = lineEnd + 2;
     }
 
-    // 5. Parsear el Body
-    request->body = NULL; // por defecto no hay body
+    request->body = NULL;
+    request->bodyLength = 0; 
 
-    // Buscar el header Content-Length
-    for (int i = 0; i < request->headers.count; i++)
+    if (contentLength > 0 && contentLength < 1024 * 1024) 
     {
-        if (strcmp(request->headers.headers[i].key, "Content-Length") == 0)
+        const unsigned char *bodyStart = (const unsigned char *)buffer + headerSize; // 🔥 CAMBIO
+
+        request->body = malloc(contentLength); 
+        if (request->body == NULL)
         {
-
-            int bodyLen = atoi(request->headers.headers[i].value);
-
-            if (bodyLen > 0)
-            {
-                // buscar donde empieza el body — después del \r\n\r\n
-                char *bodyStart = strstr(rawCopy, "\r\n\r\n");
-                if (bodyStart != NULL)
-                {
-                    bodyStart += 4; // salta el \r\n\r\n
-
-                    request->body = malloc(bodyLen + 1);
-                    memcpy(request->body, bodyStart, bodyLen);
-                    request->body[bodyLen] = '\0';
-                }
-            }
-            break;
+            free(request);
+            return NULL;
         }
+
+        memcpy(request->body, bodyStart, contentLength); // 🔥 CAMBIO
+        request->bodyLength = contentLength; // 🔥 CAMBIO
     }
 
-    free(rawCopy);
     return request;
 }
 
-HTTPMethod ParseMethod(const char *method_str)
+HTTPMethod ParseMethod(const char *method)
 {
-    if (strcmp(method_str, "GET") == 0)
+    if (strcasecmp(method, "GET") == 0)
         return GET;
-    if (strcmp(method_str, "POST") == 0)
+    if (strcasecmp(method, "POST") == 0)
         return POST;
-    if (strcmp(method_str, "PUT") == 0)
+    if (strcasecmp(method, "PUT") == 0)
         return PUT;
-    if (strcmp(method_str, "DELETE") == 0)
+    if (strcasecmp(method, "DELETE") == 0)
         return DELETE;
-    if (strcmp(method_str, "HEAD") == 0)
+    if (strcasecmp(method, "HEAD") == 0)
         return HEAD;
-    if (strcmp(method_str, "OPTIONS") == 0)
+    if (strcasecmp(method, "OPTIONS") == 0)
         return OPTIONS;
-    if (strcmp(method_str, "CONNECT") == 0)
+    if (strcasecmp(method, "CONNECT") == 0)
         return CONNECT;
-    if (strcmp(method_str, "TRACE") == 0)
+    if (strcasecmp(method, "TRACE") == 0)
         return TRACE;
     return -1;
 }
