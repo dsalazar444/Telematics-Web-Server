@@ -1,7 +1,7 @@
 #ifndef MESSAGES_H
 #define MESSAGES_H
 
-#include "structs.h"
+#include "http.h"
 #include "LoadBalancer/loadBalancer.h"
 
 // WS → Caché/Proxy
