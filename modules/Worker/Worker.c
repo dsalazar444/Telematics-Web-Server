@@ -7,7 +7,10 @@
 
 void *worker(void *arg)
 {
-    IClientSocket *client = (IClientSocket *)arg;
+    WorkerArgs *w = (WorkerArgs*)arg;
+
+    IClientSocket *client = w->client;
+    LoadBalancer *lb = w->lb;
 
     // Recibir la petición
     char buffer[4096];
@@ -21,12 +24,29 @@ void *worker(void *arg)
 
         printf("Peticion recibida:\n%s\n", buffer);
 
-        char *response = "HTTP/1.1 200 OK\r\nContent-Length: 12\r\n\r\nHola cliente";
+        ConnectToBackendAndForward(w, buffer);
+
+        char *response = "HTTP/1.1 200 OK\r\nContent-Length: 12\r\n\r\nHola cliente\r\n";
         SendToClient(client, response, strlen(response));
     }
 
     // 4. Cerrar y liberar
     CloseClientSocket(client);
-    free(client);
     return NULL;
+}
+
+void ConnectToBackendAndForward(WorkerArgs *w, const char *request){
+    // Aquí se implementaría la lógica para conectar al backend seleccionado por el LoadBalancer
+    // y reenviar la petición. Esto incluiría:
+    // 1. Seleccionar un backend usando LoadBalancerSelectBackend(w->lb)
+    // 2. Crear un socket para conectarse al backend
+    // 3. Conectar al backend usando la IP y puerto del BackendNode seleccionado
+    // 4. Enviar la petición al backend
+    // 5. Recibir la respuesta del backend
+    // 6. Reenviar la respuesta al cliente original usando SendToClient(w->client, ...)
+    LoadBalancer *lb = w->lb;
+    BackendNode backend = LoadBalancerSelectBackend(lb);
+    printf("Seleccionado backend: %u.%u.%u.%u:%u\n",
+        backend.id.ip[0], backend.id.ip[1], backend.id.ip[2], backend.id.ip[3],
+        backend.id.port);
 }

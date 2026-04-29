@@ -5,6 +5,7 @@
 #include "Config/Config.h"
 #include "modules/LoadBalancer/loadBalancer.h"
 #include "modules/Worker/Worker.h"
+#include <stdlib.h>
 
 int main()
 {
@@ -24,7 +25,9 @@ int main()
     printf("Servidor escuchando en puerto %d\n", config.port);
 
     // Crear el LoadBalancer con los backends y el contador
-    // LoadBalancer* lb = LoadBalancerCreate(config.backends, config.backendCount);
+    LoadBalancer *lb = LoadBalancerCreate(config.backends, config.backendCount);
+
+    LoadBalancerPrint(lb);
 
     while (1)
     {
@@ -32,12 +35,16 @@ int main()
         if (client == NULL)
             continue;
 
+        WorkerArgs *args = malloc(sizeof(WorkerArgs));
+        args->client = client;
+        args->lb = lb; // mismo puntero para todos
+
         pthread_t thread;
-        pthread_create(&thread, NULL, worker, client);
+        pthread_create(&thread, NULL, worker, args);
         pthread_detach(thread);
     }
     // Cuando ya no se necesite la configuración ni el load balancer:
-    // FreeLoadBalancer(lb); // Si tienes una función para liberar el load balancer
-    FreeConfig(&config); // Libera la memoria de los backends
+    FreeLoadBalancer(lb); // Si tienes una función para liberar el load balancer
+    FreeConfig(&config);  // Libera la memoria de los backends
     return 0;
 }

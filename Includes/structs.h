@@ -41,7 +41,7 @@ typedef struct  {
 } Config;
 
 typedef struct {
-    uint8_t ip[16];
+    uint8_t ip[4];
     uint16_t port;
 } IDBackendNode;
 
