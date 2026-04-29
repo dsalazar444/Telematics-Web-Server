@@ -31,9 +31,9 @@ bool request_buffer_dequeue(RequestBuffer *buffer, HTTPRequest *request);
 uint16_t request_buffer_size(const RequestBuffer *buffer);
 bool request_buffer_is_full(const RequestBuffer *buffer);
 
-BackendNode *load_balancer_select_node(LoadBalancer *lb);
-void load_balancer_mark_healthy_node(BackendNode *node);
-void load_balancer_mark_unhealthy_node(BackendNode *node);
-BackendNode *load_balancer_get_backend_nodes(const LoadBalancer *lb);
+LoadBalancer LoadBalancerCreate(char *nodes, uint8_t count);
+IDBackendNode *LoadBalancerParserNodeID(const char *node_str);
+BackendNode *LoadBalancerGetBackendNodes(const LoadBalancer *lb);
+bool LoadBalancerHealthCheck(BackendNode node);
 
 #endif
