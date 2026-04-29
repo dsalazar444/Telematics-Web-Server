@@ -9,7 +9,7 @@ void *worker(void *arg)
 {
     IClientSocket *client = (IClientSocket *)arg;
 
-    // 1. Recibir la petición
+    // Recibir la petición
     char buffer[4096];
 
     while (1)
