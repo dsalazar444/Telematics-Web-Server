@@ -1,13 +1,5 @@
-// Worker.c
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
 #include "Worker.h"
-#include "../Socket/Socket.h"
 #include "../HttpParser/HttpParser.h"
-
-
 
 void *worker(void *arg)
 {
