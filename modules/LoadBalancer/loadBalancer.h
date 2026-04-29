@@ -32,8 +32,9 @@ uint16_t request_buffer_size(const RequestBuffer *buffer);
 bool request_buffer_is_full(const RequestBuffer *buffer);
 
 LoadBalancer LoadBalancerCreate(char *nodes, uint8_t count);
-IDBackendNode *LoadBalancerParserNodeID(const char *node_str);
+IDBackendNode LoadBalancerParserNodeID(const char *node_str);
 BackendNode *LoadBalancerGetBackendNodes(const LoadBalancer *lb);
+BackendNode LoadBalancerSelectBackend(LoadBalancer *lb);
 bool LoadBalancerHealthCheck(BackendNode node);
 
 #endif
