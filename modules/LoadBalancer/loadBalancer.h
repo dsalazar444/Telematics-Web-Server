@@ -10,6 +10,7 @@ typedef struct BackendNode {
     IDBackendNode id;
     uint16_t active_connections;
     bool healthy;
+    uint16_t index; // Índice en el array del LoadBalancer
 } BackendNode;
 
 typedef struct LoadBalancer {
@@ -25,5 +26,7 @@ BackendNode LoadBalancerSelectBackend(LoadBalancer *lb);
 bool LoadBalancerHealthCheck(BackendNode node);
 void FreeLoadBalancer(LoadBalancer *lb);
 void LoadBalancerPrint(LoadBalancer *lb);
+void IncrementActiveConnections(LoadBalancer *lb, BackendNode *node);
+void DecrementActiveConnections(LoadBalancer *lb, BackendNode *node);
 
 #endif
