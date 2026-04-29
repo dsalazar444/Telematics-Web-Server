@@ -20,7 +20,7 @@ void* worker(void* arg) {
 
 int main() {
 
-    Config config = LoadConfig("proxy.config"); 
+    Config config = LoadConfig("Config/proxy.config"); 
 
     ISocketListener listener;
     listener.fd = CreateDualStackSocket();
@@ -32,14 +32,16 @@ int main() {
     printf("Servidor escuchando en puerto %d\n", config.port);
 
     // Crear el LoadBalancer con los backends y el contador
-    // LoadBalancer* lb = LoadBalancerCreate(config.backends, config.backendCount);
+    LoadBalancer* lb = LoadBalancerCreate(config.backends, config.backendCount);
+
+    LoadBalancerPrint(lb);
 
     while (1) {
         IClientSocket* client = AcceptSocket(&listener);
     
     }
     // Cuando ya no se necesite la configuración ni el load balancer:
-    // FreeLoadBalancer(lb); // Si tienes una función para liberar el load balancer
+    FreeLoadBalancer(lb); // Si tienes una función para liberar el load balancer
     FreeConfig(&config); // Libera la memoria de los backends
     return 0;
 }
