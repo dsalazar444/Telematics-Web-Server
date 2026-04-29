@@ -1,7 +1,7 @@
 #ifndef MESSAGES_H
 #define MESSAGES_H
 
-#include "http.h"
+#include "structs.h"
 
 // Base de todos los mensajes
 typedef struct {
