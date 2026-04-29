@@ -1,5 +1,4 @@
 #include "HttpParser.h"
-#include "../../Includes/structs.h"
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -12,7 +11,7 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
         return NULL;
     memset(request, 0, sizeof(HTTPRequest));
 
-    const char *headersEnd = buffer + headerSize; // 🔥 CAMBIO
+    const char *headersEnd = buffer + headerSize;
 
     const char *requestLineEnd = strstr(buffer, "\r\n");
     if (requestLineEnd == NULL || requestLineEnd > headersEnd)
@@ -110,7 +109,7 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
 
     if (contentLength > 0 && contentLength < 1024 * 1024) 
     {
-        const unsigned char *bodyStart = (const unsigned char *)buffer + headerSize; // 🔥 CAMBIO
+        const unsigned char *bodyStart = (const unsigned char *)buffer + headerSize;
 
         request->body = malloc(contentLength); 
         if (request->body == NULL)

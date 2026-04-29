@@ -7,8 +7,6 @@
 #include "../Socket/Socket.h"
 #include "../HttpParser/HttpParser.h"
 
-
-
 void *worker(void *arg)
 {
     WorkerArgs *workerArgs = (WorkerArgs*)arg;
