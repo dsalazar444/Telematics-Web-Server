@@ -1,5 +1,5 @@
-#ifndef URI_PARSER_H
-#define URI_PARSER_H
+#ifndef URIPARSER_H
+#define URIPARSER_H
 
 #define URI_MAX_LEN 2048
 

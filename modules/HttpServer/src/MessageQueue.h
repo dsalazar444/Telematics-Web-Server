@@ -1,7 +1,7 @@
-#ifndef MESSAGE_QUEUE_H
-#define MESSAGE_QUEUE_H
+#ifndef MESSAGEQUEUE_H
+#define MESSAGEQUEUE_H
 
-#include "../../Shared/messages.h"
+#include "../../../Shared/messages.h"
 
 // struct de cola que contendrá ForwardRequestsMessage
 typedef struct MessageQueue MessageQueue; 
