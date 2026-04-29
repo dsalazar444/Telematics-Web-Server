@@ -1,3 +1,6 @@
+#ifndef STRUCTS_H
+#define STRUCTS_H
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -30,15 +33,17 @@ typedef struct {
     char version[10];
 } HTTPRequest;
 
-typedef struct {
+typedef struct  {
     int  port;
     int  ttl;
-    char backends[10][64];
-    int  backend_count;
+    char** backends;
+    uint16_t  backendCount;
 } Config;
 
 typedef struct {
     uint8_t ip[16];
     uint16_t port;
 } IDBackendNode;
+
+#endif // STRUCTS_H
 

@@ -1,4 +1,4 @@
-#include "../Includes/structs.h"
+#include "../../Includes/structs.h"
 #include <stdint.h>
 #include <stdbool.h>
 
