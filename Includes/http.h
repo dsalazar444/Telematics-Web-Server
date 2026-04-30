@@ -42,6 +42,5 @@ typedef struct {
     size_t bodyLength; 
 } HTTPResponse;
 
-
 #endif // STRUCTS_H
 

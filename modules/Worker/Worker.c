@@ -202,13 +202,11 @@ static int GetRequestSizes(const char *requestBuffer, int *headerSize, int *cont
 
     *headerSize = (int)(headersEnd - requestBuffer) + 4;
     *contentLength = 0;
-
     const char *lineStart = strstr(requestBuffer, "\r\n");
     if (lineStart == NULL || lineStart >= headersEnd)
     {
         return -1;
     }
-
     lineStart += 2;
 
     while (lineStart < headersEnd)
@@ -218,7 +216,6 @@ static int GetRequestSizes(const char *requestBuffer, int *headerSize, int *cont
         {
             return -1;
         }
-
         if (lineEnd == lineStart)
         {
             break;

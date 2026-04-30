@@ -6,6 +6,7 @@
 #include "modules/LoadBalancer/loadBalancer.h"
 #include "modules/LoadBalancer/HealthCheck.h"
 #include "modules/Worker/Worker.h"
+#include "modules/CacheManager/CacheManager.h"
 #include <stdlib.h>
 
 int main()
@@ -29,6 +30,15 @@ int main()
     LoadBalancer *lb = LoadBalancerCreate(config.backends, config.backendCount);
     LoadBalancerPrint(lb);
 
+    // Crear la caché
+    Cache *cacheManager = CacheManagerCreate(config.cacheDir, config.ttl);
+    if (cacheManager == NULL) {
+        fprintf(stderr, "Error al crear el CacheManager\n");
+        FreeLoadBalancer(lb);
+        FreeConfig(&config);
+        return 1;
+    }
+
     pthread_t health_thread;
     pthread_create(&health_thread, NULL, HealthCheckLoop, lb);
     pthread_detach(health_thread); // dejar que corra independientemente
@@ -42,7 +52,7 @@ int main()
         WorkerArgs *args = malloc(sizeof(WorkerArgs));
         args->client = client;
         args->lb = lb; // mismo puntero para todos
-
+        args->cacheManager = cacheManager; // pasar el puntero a la caché
         pthread_t thread;
         pthread_create(&thread, NULL, worker, args);
         pthread_detach(thread);

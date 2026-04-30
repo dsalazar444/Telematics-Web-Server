@@ -5,7 +5,8 @@
 
 typedef struct  {
     int  port;
-    int  ttl;
+    uint16_t  ttl;
+    char* cacheDir;
     char** backends;
     uint16_t  backendCount;
 } Config;

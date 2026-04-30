@@ -44,12 +44,12 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
         return NULL;
     }
 
-    char headers_copy[headerSize + 1];
-    memcpy(headers_copy, buffer, headerSize); 
-    headers_copy[headerSize] = '\0';
+    char headersCopy[headerSize + 1];
+    memcpy(headersCopy, buffer, headerSize); 
+    headersCopy[headerSize] = '\0';
 
-    const char *lineStart = strstr(headers_copy, "\r\n") + 2; 
-    const char *headersEndCopy = headers_copy + headerSize;  
+    const char *lineStart = strstr(headersCopy, "\r\n") + 2; 
+    const char *headersEndCopy = headersCopy + headerSize;  
 
     while (lineStart < headersEndCopy)
     {

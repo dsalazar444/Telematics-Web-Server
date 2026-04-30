@@ -9,10 +9,12 @@
 #include "../../modules/Socket/Socket.h"
 #include "../../Includes/http.h"
 #include "../../modules/LoadBalancer/loadBalancer.h"
+#include "../../modules/CacheManager/CacheManager.h"
 
 typedef struct {
     IClientSocket *client;
     LoadBalancer *lb;   // Compartido entre todos los workers
+    Cache *cacheManager;       // Puntero a la caché compartida
 } WorkerArgs;
 
 void* worker(void* arg);
