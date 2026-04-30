@@ -7,8 +7,11 @@ typedef struct FileResult FileResult;
 
 void FileManagerInit(const char* root);
 
-// GET y HEAD — busca y lee el archivo (mandar un bool para saber si head o get?)
+// GET — busca y lee el archivo 
 FileResult* FileGet(const char* absPath);
+
+// HEAD - busca y genera encabezados (no lee archivo)
+FileResult* FileHead(const char* absPath);  
 
 // POST — escribe body en disco
 FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen);

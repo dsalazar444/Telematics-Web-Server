@@ -3,7 +3,7 @@
 
 #include "../../Includes/http.h"
 
-// struct de cola que contendrá ForwardRequestsMessage
+// struct de cola que contendrá HTTPRequest
 typedef struct MessageQueue MessageQueue; 
 
 // Crea e inicializa la cola thread-safe

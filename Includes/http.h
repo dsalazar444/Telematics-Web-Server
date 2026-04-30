@@ -39,6 +39,7 @@ typedef struct {
     char statusMessage[64];
     HTTPHeaders headers;
     unsigned char *body;
+    size_t bodyLength; 
 } HTTPResponse;
 
 

@@ -13,8 +13,7 @@ void FileManagerInit(const char* root) {
     if (root != NULL) FileManagerSetRoot(root);
 }
 
-// Orquesta todo lo del get
-FileResult* FileGet(const char* absPath) {
+FileResult* InitResult(){
     FileResult* result = malloc(sizeof(FileResult));
     if (result == NULL) {
         // malloc falló
@@ -30,43 +29,46 @@ FileResult* FileGet(const char* absPath) {
     result->_isNewResource = 0;
     result->_statusCode = 200;
 
-    // 1. construir ruta real
+    return result;
+
+}
+
+// Orquesta todo lo del get
+FileResult* FileGet(const char* absPath) {
+   
+    FileResult* result = InitResult();
+    if (result == NULL) return NULL;
+
     char realPath[MAX_PATH_LEN];
-    if (!BuildRealPath(absPath, realPath)) { // 1 exit, 0 -> ruta muy larga
-        result->_statusCode = 400;
-        return result;
-    }
-
-    // 2. stat() — una sola vez -> si no se puede obtener -> archivo/dir no existe -> 404
     struct stat pathStat;
-    if (stat(realPath, &pathStat) != 0) {
-        result->_statusCode = 404;
-        return result;
+
+    if (!GetFileMetadata(absPath, realPath, &pathStat, result)) {
+        return result;  // statusCode ya seteado adentro
     }
 
-    // 3. manejar directorio — puede modificar realPath y pathStat (1 si index, 0 si ~dir, -1 si no index)
-    int dirResult = HandleDirectory(realPath, &pathStat);
-    if (dirResult == -1) {
-        result->_statusCode = 403; // Dir no tenia index.html
-        return result;
-    }
-
-    // 4. verificar que es archivo regular
-    if (!S_ISREG(pathStat.st_mode)) {
-        result->_statusCode = 403;
-        return result;
-    }
-    // si llega hasta acá, y era una ruta de dir, ya estamos trabajando con el index de esa dir
-    // 5. MIME type
-    GetMimeType(realPath, result->_mimeType);
-
-    // 6. Last-Modified — reutiliza pathStat
-    GetLastModified(&pathStat, result->_lastModified);
-
-    // 7. leer archivo
+    // GET lee el body
     if (!ReadFile(realPath, &pathStat, result)) {
         result->_statusCode = 500;
-        return result;
+    }
+
+    return result;
+}
+
+FileResult* FileHead(const char* absPath) {
+    FileResult* result = InitResult();
+    if (result == NULL) return NULL;
+
+    char realPath[MAX_PATH_LEN];
+    struct stat pathStat;
+
+    // HEAD solo necesita metadata — no llama ReadFile
+    GetFileMetadata(absPath, realPath, &pathStat, result);
+
+    // contentLen sí debe estar presente en HEAD
+    // para que Response pueda construir Content-Length correcto
+    if (result->_statusCode == 200) {
+        // RFC 9.4 dice que Content-Length debe ser el mismo que tendría un GET equivalente 
+        result->_contentLen = pathStat.st_size;
     }
 
     return result;

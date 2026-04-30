@@ -37,6 +37,43 @@ int HandleDirectory(char* realPath, struct stat* outStat) {
     return 1;
 }
 
+int GetFileMetadata(const char* absPath, char* outRealPath, struct stat* outStat, FileResult* result){
+   
+    // 1. construir ruta real
+    char realPath[MAX_PATH_LEN];
+    if (!BuildRealPath(absPath, realPath)) { // 1 exit, 0 -> ruta muy larga
+        result->_statusCode = 400;
+        return 0;
+    }
+
+    // 2. stat() — una sola vez -> si no se puede obtener -> archivo/dir no existe -> 404
+    struct stat pathStat;
+    if (stat(realPath, &pathStat) != 0) {
+        result->_statusCode = 404;
+        return 0;
+    }
+
+    // 3. manejar directorio — puede modificar realPath y pathStat (1 si index, 0 si ~dir, -1 si no index)
+    int dirResult = HandleDirectory(realPath, &pathStat);
+    if (dirResult == -1) {
+        result->_statusCode = 403; // Dir no tenia index.html
+        return 0;
+    }
+
+    // 4. verificar que es archivo regular
+    if (!S_ISREG(pathStat.st_mode)) {
+        result->_statusCode = 403;
+        return 0;
+    }
+
+    // si llega hasta acá, y era una ruta de dir, ya estamos trabajando con el index de esa dir
+    // 5. Metadata
+    GetMimeType(realPath, result->_mimeType);
+    GetLastModified(&pathStat, result->_lastModified);
+
+    return 1;
+
+}
 
 // pathStat es la info del archivo
 int ReadFile(const char* realPath, const struct stat* pathStat, FileResult* result) {
@@ -68,7 +105,6 @@ int ReadFile(const char* realPath, const struct stat* pathStat, FileResult* resu
     result->_contentLen = fileSize;
     return 1;
 }
-
 
 // --------------------- POST -------------------------------
 int CheckParentDirExists(const char* realPath) {
