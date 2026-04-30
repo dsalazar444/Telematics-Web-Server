@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200112L // para clock_Realtime
 #include "FileManagerUtils.h"
 #include <sys/stat.h>  // para stat()
 #include <stdio.h>     // para NULL
@@ -6,6 +7,27 @@
 
 // FUNCIÓN: funciones que trabajan con strings y metadata, no tocan contenido del archivo
 // _documentRoot es local a este módulo (static)
+
+typedef struct {
+    const char* extension;
+    const char* mimeType;
+} MimeEntry; // "dict" para tipo de dato segun extensión, y viceversa
+
+static const MimeEntry MIME_TABLE[] = {
+    { ".html", "text/html" },
+    { ".htm",  "text/html" },
+    { ".css",  "text/css" },
+    { ".js",   "application/javascript" },
+    { ".json", "application/json" },
+    { ".png",  "image/png" },
+    { ".jpg",  "image/jpeg" },
+    { ".jpeg", "image/jpeg" },
+    { ".gif",  "image/gif" },
+    { ".txt",  "text/plain" },
+    { ".pdf",  "application/pdf" },
+    { ".xml",  "application/xml" },
+    { NULL, NULL }  // centinela — marca el fin de la tabla
+};
 
 static char _documentRoot[MAX_PATH_LEN] = "./www";
 
@@ -30,34 +52,41 @@ int BuildRealPath(const char* absPath, char* outPath) {
     return 1;
 }
 
-// Obtener tipo del body request
-void GetMimeType(const char* path, char* outMime) {
+// Obtener tipo del body request con method get o head, puesto que estos no traen obligatoriamente content-type
+void GetMimeTypeByExtension(const char* path, char* outMime) {
     // buscar el último punto en el path
     const char* ext = strrchr(path, '.');
-
-    if (ext == NULL) {
-        // sin extensión -> tipo genérico binario
-        strncpy(outMime, "application/octet-stream", 63);
-        outMime[63] = '\0';
-        return;
+    
+    if (ext != NULL) {
+        for (int i = 0; MIME_TABLE[i].extension != NULL; i++) {
+            if (strcasecmp(ext, MIME_TABLE[i].extension) == 0) {
+                strncpy(outMime, MIME_TABLE[i].mimeType, 63);
+                outMime[63] = '\0';
+                return;
+            }
+        }
     }
 
-    // comparar extensión (case-insensitive)
-    if      (strcasecmp(ext, ".html") == 0) strncpy(outMime, "text/html", 63);
-    else if (strcasecmp(ext, ".htm")  == 0) strncpy(outMime, "text/html", 63);
-    else if (strcasecmp(ext, ".css")  == 0) strncpy(outMime, "text/css", 63);
-    else if (strcasecmp(ext, ".js")   == 0) strncpy(outMime, "application/javascript", 63);
-    else if (strcasecmp(ext, ".json") == 0) strncpy(outMime, "application/json", 63);
-    else if (strcasecmp(ext, ".png")  == 0) strncpy(outMime, "image/png", 63);
-    else if (strcasecmp(ext, ".jpg")  == 0) strncpy(outMime, "image/jpeg", 63);
-    else if (strcasecmp(ext, ".jpeg") == 0) strncpy(outMime, "image/jpeg", 63);
-    else if (strcasecmp(ext, ".gif")  == 0) strncpy(outMime, "image/gif", 63);
-    else if (strcasecmp(ext, ".txt")  == 0) strncpy(outMime, "text/plain", 63);
-    else if (strcasecmp(ext, ".pdf")  == 0) strncpy(outMime, "application/pdf", 63);
-    else if (strcasecmp(ext, ".xml")  == 0) strncpy(outMime, "application/xml", 63);
-    else    strncpy(outMime, "application/octet-stream", 63);
-
+    strncpy(outMime, "application/octet-stream", 63);
     outMime[63] = '\0';
+}
+
+// Generamos nombre de archivo a crear con post, usando el timestamp, y la extensión
+void GenerateFileName(const char* contentType, char* outFileName) {
+    const char* ext = ".bin";  // default
+
+    if (contentType != NULL) {
+        for (int i = 0; MIME_TABLE[i].mimeType != NULL; i++) {
+            if (strcasecmp(contentType, MIME_TABLE[i].mimeType) == 0) {
+                ext = MIME_TABLE[i].extension;
+                break;
+            }
+        }
+    }
+
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    snprintf(outFileName, 256, "%ld%ld%s", (long)ts.tv_sec, (long)ts.tv_nsec, ext);
 }
 
 // Obtener fecha de ultima modificación de recurso solicitado

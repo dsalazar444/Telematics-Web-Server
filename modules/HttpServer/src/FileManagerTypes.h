@@ -12,7 +12,7 @@ struct FileResult {
     // headers que response.c necesita construir
     char _mimeType[64];      // → Content-Type
     char _lastModified[64];  // → Last-Modified
-    char _location[1024];    // → Location (POST 201)
+    char _location[1024];    // → Location (POST 201, si no, /0)
     int  _isNewResource;     // → decide si es 200 o 201
 
     // control de errores

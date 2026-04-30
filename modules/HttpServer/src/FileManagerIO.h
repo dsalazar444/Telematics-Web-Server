@@ -6,7 +6,7 @@
 #include <stddef.h> // Para size_t
 
 int HandleDirectory(char* realPath, struct stat* outStat);
-int CheckParentDirExists(const char* realPath);
+int CheckDirExists(const char* realDirPath);
 int ReadFile(const char* realPath, const struct stat* pathStat, FileResult* result);
 int WriteFile(const char* realPath, const char* body, size_t bodyLen, int* outIsNew);
 // obtiene metadata sin leer el body

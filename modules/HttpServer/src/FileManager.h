@@ -14,7 +14,7 @@ FileResult* FileGet(const char* absPath);
 FileResult* FileHead(const char* absPath);  
 
 // POST — escribe body en disco
-FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen);
+FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, const char* contentType);
 
 // Libera memoria del content
 void FileResultFree(FileResult* result);

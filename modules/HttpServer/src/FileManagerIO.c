@@ -68,7 +68,7 @@ int GetFileMetadata(const char* absPath, char* outRealPath, struct stat* outStat
 
     // si llega hasta acá, y era una ruta de dir, ya estamos trabajando con el index de esa dir
     // 5. Metadata
-    GetMimeType(realPath, result->_mimeType);
+    GetMimeTypeByExtension(realPath, result->_mimeType);
     GetLastModified(&pathStat, result->_lastModified);
 
     return 1;
@@ -107,21 +107,11 @@ int ReadFile(const char* realPath, const struct stat* pathStat, FileResult* resu
 }
 
 // --------------------- POST -------------------------------
-int CheckParentDirExists(const char* realPath) {
-    char parentPath[MAX_PATH_LEN];
-    strncpy(parentPath, realPath, MAX_PATH_LEN - 1);
-    parentPath[MAX_PATH_LEN - 1] = '\0';
-
-    // encontrar el último "/" y cortar ahí
-    char* lastSlash = strrchr(parentPath, '/');
-    if (lastSlash == NULL) return 0;
-    *lastSlash = '\0';  // parentPath ahora es solo el directorio
-
-    // verificar que existe y es directorio
+// Verifica que, la carpeta indicada en la uri, en donde nos piden hacer el post, exista
+int CheckDirExists(const char* realDirPath) {
     struct stat pathStat;
-    if (stat(parentPath, &pathStat) != 0)  return 0;
-    if (!S_ISDIR(pathStat.st_mode))        return 0;
-
+    if (stat(realDirPath, &pathStat) != 0) return 0;
+    if (!S_ISDIR(pathStat.st_mode)) return 0;
     return 1;
 }
 
@@ -131,9 +121,9 @@ int WriteFile(const char* realPath, const char* body, size_t bodyLen, int* outIs
     struct stat pathStat;
     *outIsNew = (stat(realPath, &pathStat) != 0) ? 1 : 0; // si stat falla → archivo no existe → es nuevo
 
-    // abrir en modo binario escritura
-    // "wb" → crea si no existe, sobreescribe si existe
-    FILE* file = fopen(realPath, "wb");
+    // abrir en modo binario append
+    // "ab" → crea si no existe, añade si existe
+    FILE* file = fopen(realPath, "ab");
     if (file == NULL) return 0;
 
     // escribir body
@@ -141,6 +131,6 @@ int WriteFile(const char* realPath, const char* body, size_t bodyLen, int* outIs
     fclose(file);
 
     if (bytesWritten != bodyLen) return 0;
-
+    
     return 1;
 }
