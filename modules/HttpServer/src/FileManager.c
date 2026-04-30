@@ -67,6 +67,7 @@ FileResult* FileHead(const char* absPath) {
     // HEAD solo necesita metadata — no llama ReadFile
     GetFileMetadata(absPath, realPath, &pathStat, result);
 
+    // TO DO ----------------------------------------------- SE MANDA SIEMPRE, INCLUSO SI FALLA 
     if (result->_statusCode == 200) { //si archivo no existe, o carpeta sin index, da codigo diferente -> ~contentLen
         // RFC 9.4 dice que Content-Length debe ser el mismo que tendría un GET equivalente 
         result->_contentLen = pathStat.st_size;
@@ -81,6 +82,7 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
     if (result == NULL) return NULL;
     
     // validar body (que no este vacio)
+    // to do --------------------- LAURA YA LO HACE
     if (body == NULL || bodyLen == 0) {
         result->_statusCode = 400;
         return result;
@@ -96,7 +98,7 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
     // 2. verificar qué exista, sea lo que sea (archivo o directorio)
     struct stat pathStat;
     if (stat(realPath, &pathStat) != 0) {
-        result->_statusCode = 404;
+        result->_statusCode = 404; // ESO NO LO PUEDE MANEJAR LAURA
         return result;
     }
     
@@ -109,10 +111,11 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
         // 3. generar nombre de archivo -> 1714392000123.html
         char fileName[256];
 
-        pthread_mutex_lock(&_writeMutex);
+        pthread_mutex_lock(&_writeMutex); // TODO -------- usar tambien generaodr de random -> unit8 para un byte -> porque dos servers al mismo tiempo
         GenerateFileName(contentType, fileName); //Porque pueden tener mismo timestamp, poco probable, pero ajá
 
         // 4. construir ruta completa del archivo nuevo (ejm: ./www/uploads/1714392000123.html)
+        //TODO ------- post si esun archivo, debo verificar si existe o no, si sí, append, si no, crear, para poder replicador servir
         char newFilePath[MAX_PATH_LEN];
         snprintf(newFilePath, MAX_PATH_LEN, "%s/%s", realPath, fileName);
 
@@ -142,7 +145,7 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
    
     } else {
         // No es ni dir ni archivo
-        result->_statusCode = 403;
+        result->_statusCode = 403; // Forbidden -> tampoco lo puede hacer Lau
         return result;
     }
 
