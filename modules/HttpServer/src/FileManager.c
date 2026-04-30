@@ -29,7 +29,6 @@ FileResult* InitResult(){
     result->_mimeType[0] = '\0';
     result->_lastModified[0] = '\0';
     result->_location[0] = '\0';
-    result->_isNewResource = 0;
     result->_statusCode = 200;
 
     return result;
@@ -37,6 +36,9 @@ FileResult* InitResult(){
 }
 
 // Orquesta todo lo del get
+// Headers que genera: 
+//getMetadata: status, contenttype, last_modified
+// read: content, contentlen
 FileResult* FileGet(const char* absPath) {
    
     FileResult* result = InitResult();
@@ -77,82 +79,69 @@ FileResult* FileHead(const char* absPath) {
 }
 
 // Orquesta todo del post (path de post es una carpeta, para crear archivo ahi, o un archivo a modificar)
+// Headers que genera:
+// statusCode, contentLen, location, 
+// TODO : contentLen qué, voy a devolver entity?,si sí, hay que devolver content, contentType
 FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, const char* contentType) {
     FileResult* result = InitResult();
     if (result == NULL) return NULL;
-    
-    // validar body (que no este vacio)
-    // to do --------------------- LAURA YA LO HACE
-    if (body == NULL || bodyLen == 0) {
-        result->_statusCode = 400;
-        return result;
-    }
+    // NO hay que verificar body vacio, cache lo hace
 
     // 1. construir ruta real (añadimos .www)
     char realPath[MAX_PATH_LEN];
     if (!BuildRealPath(absPath, realPath)) {
         result->_statusCode = 414; //uri too long
         return result;
-    }
+     }
 
-    // 2. verificar qué exista, sea lo que sea (archivo o directorio)
-    struct stat pathStat;
-    if (stat(realPath, &pathStat) != 0) {
-        result->_statusCode = 404; // ESO NO LO PUEDE MANEJAR LAURA
-        return result;
-    }
-    
+    result->_contentLen = 0;
     int isNew = 0;
-    result->_contentLen = 0; // para todos los casos, será 0, pues no devolveremos entidad descriptiva (json, o html)
 
-    // 3. CASO 1: es un directorio → generar nombre y crear archivo nuevo
-    if (S_ISDIR(pathStat.st_mode)) {
-        
-        // 3. generar nombre de archivo -> 1714392000123.html
+    // 2. stat() para ver si es directorio
+    struct stat pathStat;
+    
+    // CASO 1: Ruta existe y es directorio → generar nombre aleatorio -> solo s_isdir si stat retorna 0 -> no riesgo de comportamiento innesaperado
+    if (stat(realPath, &pathStat) == 0 && S_ISDIR(pathStat.st_mode)) {
         char fileName[256];
-
-        pthread_mutex_lock(&_writeMutex); // TODO -------- usar tambien generaodr de random -> unit8 para un byte -> porque dos servers al mismo tiempo
-        GenerateFileName(contentType, fileName); //Porque pueden tener mismo timestamp, poco probable, pero ajá
+        pthread_mutex_lock(&_writeMutex);
+        GenerateFileName(contentType, fileName); //mutex porque dos workers pueden tener mismo timestamp, poco probable, pero ajá
 
         // 4. construir ruta completa del archivo nuevo (ejm: ./www/uploads/1714392000123.html)
-        //TODO ------- post si esun archivo, debo verificar si existe o no, si sí, append, si no, crear, para poder replicador servir
         char newFilePath[MAX_PATH_LEN];
         snprintf(newFilePath, MAX_PATH_LEN, "%s/%s", realPath, fileName);
-
-        // 3. escribir archivo
+        
         if (!WriteFile(newFilePath, body, bodyLen, &isNew)) {
             pthread_mutex_unlock(&_writeMutex);
             result->_statusCode = 500;
             return result;
         }
         
-         pthread_mutex_unlock(&_writeMutex); // despues de escribir, porque si dos hilos tienen diferencia menor a un nanosegundo, generarán mismo nombre -> editarán él uno al otro
+        pthread_mutex_unlock(&_writeMutex); // despues de escribir, porque si dos hilos tienen diferencia menor a un nanosegundo, generarán mismo nombre -> editarán él uno al otro
         // 6. construir location → URI del nuevo recurso
         // Ejm: dirPath = "/uploads" + "/" + fileName = "/uploads/1714392000123.html"
         snprintf(result->_location, MAX_PATH_LEN, "%s/%s", absPath, fileName);
     }
-
-    else if (S_ISREG(pathStat.st_mode)) {
-
-        if (!WriteFile(realPath, body, bodyLen, &isNew)) { // es modificar archivo de uri
+    // CASO 2: Archivo existente o nuevo (ruta general puede no existir, pero carpeta padre debe existir)
+    else {
+        // Verificar que la carpeta padre existe
+        char parentDirPath[MAX_PATH_LEN];
+        if (!GetParentDir(realPath, parentDirPath) || !CheckDirExists(parentDirPath)) {
+            result->_statusCode = 404;
+            return result;
+        }
+        
+        // WriteFile crea el archivo si no existe, o append si existe
+        if (!WriteFile(realPath, body, bodyLen, &isNew)) {
             result->_statusCode = 500;
             return result;
         }
 
         // 5. Location header vacio porque como fue edición, no hay que mandarlo
         result->_location[0] = '\0';
-        
-   
-    } else {
-        // No es ni dir ni archivo
-        result->_statusCode = 403; // Forbidden -> tampoco lo puede hacer Lau
-        return result;
     }
 
     // 4. llenar resultado
-    result->_isNewResource = isNew;
     result->_statusCode = isNew ? 201 : 200;
- 
     return result;
 }
 

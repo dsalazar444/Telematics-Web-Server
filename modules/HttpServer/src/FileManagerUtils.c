@@ -4,6 +4,7 @@
 #include <stdio.h>     // para NULL
 #include <string.h>    // para strlen, strncpy, strncat, strrchr, strcasecmp
 #include <time.h>      // para gmtime, strftime
+#include <stdlib.h>    // para random()
 
 // FUNCIÓN: funciones que trabajan con strings y metadata, no tocan contenido del archivo
 // _documentRoot es local a este módulo (static)
@@ -71,7 +72,7 @@ void GetMimeTypeByExtension(const char* path, char* outMime) {
     outMime[63] = '\0';
 }
 
-// Generamos nombre de archivo a crear con post, usando el timestamp, y la extensión
+// Generamos nombre de archivo a crear con post, usando el timestamp, random byte y la extensión
 void GenerateFileName(const char* contentType, char* outFileName) {
     const char* ext = ".bin";  // default
 
@@ -86,7 +87,8 @@ void GenerateFileName(const char* contentType, char* outFileName) {
 
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    snprintf(outFileName, 256, "%ld%ld%s", (long)ts.tv_sec, (long)ts.tv_nsec, ext);
+    int randomByte = random() % 256;  // Genera byte aleatorio (0-255)
+    snprintf(outFileName, 256, "%ld%ld%d%s", (long)ts.tv_sec, (long)ts.tv_nsec, randomByte, ext); // ejm: 1714520123456789012187.bin
 }
 
 // Obtener fecha de ultima modificación de recurso solicitado

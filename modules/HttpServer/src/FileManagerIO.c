@@ -115,6 +115,23 @@ int CheckDirExists(const char* realDirPath) {
     return 1;
 }
 
+// Extrae la carpeta padre del path (busca el último '/')
+// Ejm: "./www/uploads/archivo.txt" -> "./www/uploads"
+// Retorna 1 si éxito, 0 si no encuentra '/' o ruta muy corta
+int GetParentDir(const char* filePath, char* outParentDir) {
+
+    // Buscar el último '/'
+    const char* lastSlash = strrchr(filePath, '/');
+    if (lastSlash == NULL) return 0; // No hay '/' → sin carpeta padre válida
+    
+    // copiamos en outparentDir
+    int parentLen = lastSlash - filePath;     
+    strncpy(outParentDir, filePath, parentLen);
+    outParentDir[parentLen] = '\0';
+    
+    return 1;
+}
+
 
 int WriteFile(const char* realPath, const char* body, size_t bodyLen, int* outIsNew) {
     // verificar si el archivo ya existe
