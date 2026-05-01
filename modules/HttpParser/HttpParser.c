@@ -4,6 +4,8 @@
 #include <strings.h>
 #include <stdio.h>
 
+static const char *FindHeader(const HTTPHeaders *headers, const char *key);
+
 HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t contentLength, unsigned short *statusCode)
 {
     HTTPRequest *request = malloc(sizeof(HTTPRequest));
@@ -123,6 +125,13 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
         lineStart = lineEnd + 2;
     }
 
+    if (strcmp(request->version, "HTTP/1.1") == 0 && FindHeader(&request->headers, "Host") == NULL)
+    {
+        *statusCode = 400;  // HTTP/1.1 requiere Host
+        free(request);
+        return NULL;
+    }
+
     request->body = NULL;
     request->bodyLength = 0; 
 
@@ -143,6 +152,19 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
     }
 
     return request;
+}
+
+static const char *FindHeader(const HTTPHeaders *headers, const char *key)
+{
+    for (size_t i = 0; i < headers->count; i++)
+    {
+        if (strcasecmp(headers->headers[i].key, key) == 0)
+        {
+            return headers->headers[i].value;
+        }
+    }
+
+    return NULL;
 }
 
 HTTPMethod ParseMethod(const char *method)

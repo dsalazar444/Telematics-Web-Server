@@ -10,6 +10,7 @@
 #include "uthash.h"
 #include <sys/stat.h> 
 #include <sys/types.h>
+#include <errno.h>
 #include "../../Includes/http.h"
 
 // TODO: cache_lookup(key)Busca en disco si existe entrada válida

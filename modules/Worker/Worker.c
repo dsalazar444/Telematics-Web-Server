@@ -1,7 +1,4 @@
 #include "Worker.h"
-#include "../HttpParser/HttpParser.h"
-#include "../HttpServer/src/Response.h"
-#include "../HttpServer/src/ResponseSender.h"
 
 void *worker(void *arg)
 {
@@ -14,6 +11,8 @@ void *worker(void *arg)
     char buffer[4096];
     char requestBuffer[4096];
     int requestLen = 0;
+
+    
     while (1)
     {
         memset(buffer, 0, sizeof(buffer));
@@ -73,7 +72,26 @@ void *worker(void *arg)
 
         PrintHttpRequest(request);
 
-        ConnectToBackendAndForward(workerArgs, request);
+        // Allocate proxy message on heap so it can be handed off to other components
+        ProxyMessage *proxyMessage = malloc(sizeof(*proxyMessage));
+        if (proxyMessage == NULL) {
+            // Allocation failed: fallback to immediate forwarding and free request
+            ConnectToBackendAndForward(workerArgs, NULL);
+            free(request->body);
+            free(request);
+        } else {
+            memset(proxyMessage, 0, sizeof(*proxyMessage));
+            proxyMessage->request = request; // point to parsed request (no copy)
+            proxyMessage->shouldCache = false;
+            proxyMessage->shouldReplicate = false;
+
+            if (cacheManager != NULL && cacheKeyFromRequest(request, proxyMessage->cacheKey, sizeof(proxyMessage->cacheKey))) {
+                proxyMessage->shouldCache = true;
+            }
+
+            // Transfer ownership to ConnectToBackendAndForward (it must free message/request when done)
+            ConnectToBackendAndForward(workerArgs, proxyMessage);
+        }
 
         char *response = "HTTP/1.1 200 OK\r\nContent-Length: 12\r\n\r\nHola cliente\r\n";
         SendToClient(client, response, strlen(response));
@@ -88,7 +106,7 @@ void *worker(void *arg)
     return NULL;
 }
 
-void ConnectToBackendAndForward(WorkerArgs *workerArgs, const HTTPRequest *request){
+void ConnectToBackendAndForward(WorkerArgs *workerArgs, ProxyMessage *message){
     // Aquí se implementaría la lógica para conectar al backend seleccionado por el LoadBalancer
     // y reenviar la petición. Esto incluiría:
     // 1. Seleccionar un backend usando LoadBalancerSelectBackend(workerArgs->lb)
@@ -97,10 +115,15 @@ void ConnectToBackendAndForward(WorkerArgs *workerArgs, const HTTPRequest *reque
     // 4. Enviar la petición al backend
     // 5. Recibir la respuesta del backend
     // 6. Reenviar la respuesta al cliente original usando SendToClient(workerArgs->client, ...)
+
     LoadBalancer *lb = workerArgs->lb;
     BackendNode backend = LoadBalancerSelectBackend(lb);
-    // yo genero el proxymessage
+    (void)message;
     IncrementActiveConnections(lb, &backend);
+
+    // NOTE: ownership of `message` (and message->request) is transferred here.
+    // If this function performs the final handling, it must free them when done.
+    // If the message is enqueued to another component/thread, that component must free them.
 }
 
 void PrintHttpRequest(const HTTPRequest *request) {
