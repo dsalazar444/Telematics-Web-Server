@@ -43,6 +43,7 @@ typedef struct
 } CacheManager;
 
 CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl);
+void FreeCacheManager(CacheManager *cacheManager);
 bool cacheKeyFromRequest(const HTTPRequest *request, char *outKey, size_t outKeyLen);
 const char* MethodToString(HTTPMethod method);
 void MD5Hash(const char *input, char *output);

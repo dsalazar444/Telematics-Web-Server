@@ -5,6 +5,7 @@
 
 Config LoadConfig(const char* filepath) {
     Config config = {0};
+    config.cacheDir = strdup("./cache");
     FILE* file = fopen(filepath, "r");
     if (file == NULL) {
         perror("fopen");
@@ -33,8 +34,16 @@ Config LoadConfig(const char* filepath) {
     while (fgets(line, sizeof(line), file) != NULL) {
         if (line[0] == '#' || line[0] == '\n') continue;
         if (sscanf(line, "PORT=%d", &config.port) == 1) continue;
-        if (sscanf(line, "TTL=%d", &config.ttl) == 1) continue;
-        if (sscanf(line, "CACHE_DIR=%d", &config.cacheDir) == 1) continue;
+        if (sscanf(line, "TTL=%hu", &config.ttl) == 1) continue;
+
+        if (strncmp(line, "CACHE_DIR=", 10) == 0) {
+            char *value = line + 10;
+            size_t len = strcspn(value, "\r\n");
+            value[len] = '\0';
+            free(config.cacheDir);
+            config.cacheDir = strdup(value);
+            continue;
+        }
 
         // Leer backends
         if (strncmp(line, "BACKEND_NODE=", 13) == 0 && config.backends) {
@@ -52,6 +61,11 @@ Config LoadConfig(const char* filepath) {
 }
 
 void FreeConfig(Config *config) {
+    if (config->cacheDir) {
+        free(config->cacheDir);
+        config->cacheDir = NULL;
+    }
+
     if (config->backends) {
         for (uint16_t i = 0; i < config->backendCount; ++i) {
             free(config->backends[i]);
