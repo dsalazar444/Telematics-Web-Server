@@ -149,7 +149,7 @@ HTTPResponse* ResponseHead(FileResult* fileResult) {
     if (res == NULL) return NULL;
 
     AddCommonHeaders(res); //Tdata y server
-    if (FileResultGetContentLen(res) != 0) { // porque significa que se le asignó de forma correcta en FM
+    if (FileResultGetContentLen(fileResult) != 0) { // porque significa que se le asignó de forma correcta en FM
         AddFileResultHeaders(res, fileResult);
 
     } else {
