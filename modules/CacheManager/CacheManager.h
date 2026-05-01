@@ -35,7 +35,7 @@ typedef struct
 
 typedef struct
 {
-    char cacheDir[256];
+    char *cacheDir;
     uint16_t ttl;
     CacheEntry *table;
     uint16_t entryCount;

@@ -6,6 +6,7 @@
 #include <string.h> // para strncpy()
 #include <sys/stat.h> // para stat()..
 #include <pthread.h>
+#include <stdio.h>
 
 static pthread_mutex_t _writeMutex = PTHREAD_MUTEX_INITIALIZER;
 // FUNCIÓN: solo orquesta, no hace trabajo sucio

@@ -1,13 +1,9 @@
 #include "Response.h"
-#include <../../../Includes/HttpUtils.h>
+#include "../../../Includes/HttpUtils.h"
+#include "ResponseBody.h"
+#include <stdio.h>
+#include <string.h>
 #include <time.h>
-
-static int ValidateLength(const char* uri);
-static int ExtractPath(const char* uri, char* outPath, char* outQuery);
-static void HandleEmptyPath(ParsedURI* result);
-static void DecodePercent(char* path);
-static void NormalizePath(char* path);
-static int CheckTraversal(const char* path);
 
 static const char* GetReasonPhrase(int statusCode) {
     switch (statusCode) {
@@ -155,21 +151,8 @@ HTTPResponse* ResponseHead(FileResult* fileResult) {
     HTTPResponse* res = InitResponse(200);
     if (res == NULL) return NULL;
 
-    AddCommonHeaders(res); //Tdata y server
-    if (FileResultGetContentLen(res) != 0) { // porque significa que se le asignó de forma correcta en FM
-        AddFileResultHeaders(res, fileResult);
-
-    } else {
-        size_t bodyLen = 0;
-        unsigned char* tmp = GenerateErrorBody(404, "Not Found", &bodyLen);
-        free(tmp); // Solo interesa bodyLen
-        
-        char lenStr[32];
-        snprintf(lenStr, sizeof(lenStr), "%zu", bodyLen); // convertimos num a text
-        AddHeader(res, "Content-Type",   "text/html");
-        AddHeader(res, "Content-Length", lenStr);
-        //last_modified no porque archivo solicitado no existe    
-    }
+    AddCommonHeaders(res); // Date y Server
+    AddFileResultHeaders(res, fileResult);
 
     // sin body — eso es todo lo que diferencia HEAD de GET
     res->body = NULL;
@@ -234,4 +217,13 @@ HTTPResponse* ResponsePost(const HTTPRequest* req, FileResult* fileResult) {
     res->bodyLength = bodyLen;
 
     return res;
+}
+
+void ResponseFree(HTTPResponse* response) {
+    if (response) {
+        if (response->body) {
+            free(response->body);
+        }
+        free(response);
+    }
 }
