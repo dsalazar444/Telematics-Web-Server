@@ -4,6 +4,7 @@
 #include <stdio.h>     // para NULL
 #include <string.h>    // para strlen, strncpy, strncat, strrchr, strcasecmp
 #include <time.h>      // para gmtime, strftime
+#include <stdlib.h>    // para random()
 
 // FUNCIÓN: funciones que trabajan con strings y metadata, no tocan contenido del archivo
 // _documentRoot es local a este módulo (static)
@@ -71,10 +72,12 @@ void GetMimeTypeByExtension(const char* path, char* outMime) {
     outMime[63] = '\0';
 }
 
-// Generamos nombre de archivo a crear con post, usando el timestamp, y la extensión
-void GenerateFileName(const char* contentType, char* outFileName) {
+// Generamos nombre de archivo a crear con post, usando el timestamp, random byte y la extensión
+// Retorna 1 si éxito, 0 si el nombre excede MAX_PATH_LEN
+int GenerateFileName(const char* contentType, char* outFileName) {
     const char* ext = ".bin";  // default
 
+    // generamos extensión
     if (contentType != NULL) {
         for (int i = 0; MIME_TABLE[i].mimeType != NULL; i++) {
             if (strcasecmp(contentType, MIME_TABLE[i].mimeType) == 0) {
@@ -86,7 +89,14 @@ void GenerateFileName(const char* contentType, char* outFileName) {
 
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    snprintf(outFileName, 256, "%ld%ld%s", (long)ts.tv_sec, (long)ts.tv_nsec, ext);
+    int randomByte = random() % 256;  // Genera byte aleatorio (0-255)
+    // verificamos que nueva url no exceda max_path_len porque habria desborde de buffer
+    int written = snprintf(outFileName, MAX_PATH_LEN, "%ld%ld%d%s", (long)ts.tv_sec, (long)ts.tv_nsec, randomByte, ext);
+    if (written < 0 || written >= MAX_PATH_LEN) {
+        outFileName[0] = '\0';
+        return 0;
+    }
+    return 1;
 }
 
 // Obtener fecha de ultima modificación de recurso solicitado

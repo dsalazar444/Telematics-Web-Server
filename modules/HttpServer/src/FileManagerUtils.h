@@ -8,6 +8,6 @@ void FileManagerSetRoot(const char* root);
 int  BuildRealPath(const char* absPath, char* outPath);
 void GetMimeTypeByExtension(const char* path, char* outMime);
 void GetLastModified(const struct stat* pathStat, char* outDate);
-void GenerateFileName(const char* contentType, char* outFileName); // Para generar uri de post
+int GenerateFileName(const char* contentType, char* outFileName); // Para generar uri de post
 
 #endif

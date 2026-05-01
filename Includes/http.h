@@ -36,6 +36,7 @@ typedef struct {
 
 typedef struct {
     int statusCode;
+    char statusMessage[64];
     HTTPHeaders headers;
     unsigned char *body;
     size_t bodyLength; 

@@ -42,7 +42,7 @@ int GetFileMetadata(const char* absPath, char* outRealPath, struct stat* outStat
     // 1. construir ruta real
     char realPath[MAX_PATH_LEN];
     if (!BuildRealPath(absPath, realPath)) { // 1 exit, 0 -> ruta muy larga
-        result->_statusCode = 400;
+        result->_statusCode = 414; //al crear ruta completa pasada por client, esta es muy larga -> culpa de client
         return 0;
     }
 
@@ -56,13 +56,13 @@ int GetFileMetadata(const char* absPath, char* outRealPath, struct stat* outStat
     // 3. manejar directorio — puede modificar realPath y pathStat (1 si index, 0 si ~dir, -1 si no index)
     int dirResult = HandleDirectory(realPath, &pathStat);
     if (dirResult == -1) {
-        result->_statusCode = 403; // Dir no tenia index.html
+        result->_statusCode = 404; // Dir no tenia index.html -> not found
         return 0;
     }
 
     // 4. verificar que es archivo regular
     if (!S_ISREG(pathStat.st_mode)) {
-        result->_statusCode = 403;
+        result->_statusCode = 404;
         return 0;
     }
 
@@ -112,6 +112,23 @@ int CheckDirExists(const char* realDirPath) {
     struct stat pathStat;
     if (stat(realDirPath, &pathStat) != 0) return 0;
     if (!S_ISDIR(pathStat.st_mode)) return 0;
+    return 1;
+}
+
+// Extrae la carpeta padre del path (busca el último '/')
+// Ejm: "./www/uploads/archivo.txt" -> "./www/uploads"
+// Retorna 1 si éxito, 0 si no encuentra '/' o ruta muy corta
+int GetParentDir(const char* filePath, char* outParentDir) {
+
+    // Buscar el último '/'
+    const char* lastSlash = strrchr(filePath, '/');
+    if (lastSlash == NULL) return 0; // No hay '/' → sin carpeta padre válida
+    
+    // copiamos en outparentDir
+    int parentLen = lastSlash - filePath;     
+    strncpy(outParentDir, filePath, parentLen);
+    outParentDir[parentLen] = '\0';
+    
     return 1;
 }
 

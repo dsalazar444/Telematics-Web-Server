@@ -19,4 +19,12 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
 // Libera memoria del content
 void FileResultFree(FileResult* result);
 
+// getters
+int            FileResultGetStatusCode(const FileResult* result);
+const char*    FileResultGetMimeType(const FileResult* result);
+const char*    FileResultGetLastModified(const FileResult* result);
+const char*    FileResultGetLocation(const FileResult* result);
+unsigned char* FileResultGetContent(const FileResult* result);
+size_t         FileResultGetContentLen(const FileResult* result);
+
 #endif

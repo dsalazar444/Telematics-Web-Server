@@ -7,6 +7,7 @@
 
 int HandleDirectory(char* realPath, struct stat* outStat);
 int CheckDirExists(const char* realDirPath);
+int GetParentDir(const char* filePath, char* outParentDir);
 int ReadFile(const char* realPath, const struct stat* pathStat, FileResult* result);
 int WriteFile(const char* realPath, const char* body, size_t bodyLen, int* outIsNew);
 // obtiene metadata sin leer el body
