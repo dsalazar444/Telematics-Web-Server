@@ -81,6 +81,77 @@ bool cacheKeyFromRequest(const HTTPRequest *request, char *outKey, size_t outKey
     return true;
 }
 
+
+bool cache_store(CacheManager *cache, const char *cacheKey, const char *rawKey, const HTTPResponse *response) {
+    if (cache == NULL || cacheKey == NULL || response == NULL) return false;
+
+    pthread_mutex_lock(&cache->lock);
+
+    // 1. Construir paths de los archivos
+    char bodyPath[512];
+    char metaPath[512];
+    snprintf(bodyPath, sizeof(bodyPath), "%s/%s.body", cache->cacheDir, cacheKey);
+    snprintf(metaPath, sizeof(metaPath), "%s/%s.meta", cache->cacheDir, cacheKey);
+
+    // 2. Escribir el body
+    FILE *bodyFile = fopen(bodyPath, "wb");  // wb = write binary
+    if (bodyFile == NULL) {
+        fprintf(stderr, "cache_store: no se pudo crear body %s: %s\n", bodyPath, strerror(errno));
+        pthread_mutex_unlock(&cache->lock);
+        return false;
+    }
+    fwrite(response->body, 1, response->bodyLength, bodyFile);
+    fclose(bodyFile);
+
+    // 3. Buscar Content-Type en los headers
+    const char *contentType = "application/octet-stream";  // default
+    
+    contentType = GetHeaderValue(&response->headers, "Content-Type");
+
+    // 4. Escribir el meta
+    FILE *metaFile = fopen(metaPath, "w");
+    if (metaFile == NULL) {
+        fprintf(stderr, "cache_store: no se pudo crear meta %s: %s\n", metaPath, strerror(errno));
+        // Limpiar el body que ya escribimos
+        remove(bodyPath);
+        pthread_mutex_unlock(&cache->lock);
+        return false;
+    }
+    fprintf(metaFile, "key=%s\n",            rawKey);
+    fprintf(metaFile, "timestamp=%ld\n",     (long)time(NULL));
+    fprintf(metaFile, "ttl=%d\n",            cache->ttl);
+    fprintf(metaFile, "status=%d\n",         response->statusCode);
+    fprintf(metaFile, "content_type=%s\n",   contentType);
+    fprintf(metaFile, "content_length=%zu\n",response->bodyLength);
+    fclose(metaFile);
+
+    // 5. Actualizar índice en RAM
+    CacheEntry *existing = NULL;
+    HASH_FIND_STR(cache->table, cacheKey, existing);
+
+    if (existing != NULL) {
+        // Ya existe → solo actualizar timestamp
+        existing->timestamp = time(NULL);
+    } else {
+        // Nueva entrada
+        CacheEntry *entry = malloc(sizeof(CacheEntry));
+        if (entry == NULL) {
+            pthread_mutex_unlock(&cache->lock);
+            return false;
+        }
+        strncpy(entry->key, cacheKey, sizeof(entry->key) - 1);
+        entry->key[sizeof(entry->key) - 1] = '\0';
+        entry->timestamp = time(NULL);
+        HASH_ADD_STR(cache->table, key, entry);
+        cache->entryCount++;
+    }
+
+    pthread_mutex_unlock(&cache->lock);
+    return true;
+}
+
+
+
 const char *MethodToString(HTTPMethod method)
 {
     if (method == GET)
