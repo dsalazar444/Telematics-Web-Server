@@ -151,9 +151,21 @@ HTTPResponse* ResponseHead(FileResult* fileResult) {
     HTTPResponse* res = InitResponse(200);
     if (res == NULL) return NULL;
 
-    AddCommonHeaders(res); // Date y Server
-    AddFileResultHeaders(res, fileResult);
+    AddCommonHeaders(res); //Tdata y server
+    if (FileResultGetContentLen(fileResult) != 0) { // porque significa que se le asignó de forma correcta en FM
+        AddFileResultHeaders(res, fileResult);
 
+    } else {
+        size_t bodyLen = 0;
+        unsigned char* tmp = GenerateErrorBody(404, "Not Found", &bodyLen);
+        free(tmp); // Solo interesa bodyLen
+        
+        char lenStr[32];
+        snprintf(lenStr, sizeof(lenStr), "%zu", bodyLen); // convertimos num a text
+        AddHeader(res, "Content-Type",   "text/html");
+        AddHeader(res, "Content-Length", lenStr);
+        //last_modified no porque archivo solicitado no existe    
+    }
     // sin body — eso es todo lo que diferencia HEAD de GET
     res->body = NULL;
     res->bodyLength = 0; //no son headers, son atributos de struct
