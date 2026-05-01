@@ -1,5 +1,6 @@
 #include "FileManagerIO.h"
 #include "FileManagerTypes.h"
+#include "FileManagerUtils.h"
 #include "FileManager.h"
 #include <stdio.h>    // para fopen, fread, fwrite, fclose
 #include <sys/stat.h> // para stat(), S_ISDIR(), S_ISREG()

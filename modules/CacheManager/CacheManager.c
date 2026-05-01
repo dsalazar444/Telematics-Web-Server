@@ -3,25 +3,27 @@
 
 static const char *findHeader(const HTTPHeaders *headers, const char *key);
 const char *MethodToString(HTTPMethod method);
-void MD5Hash(const char *input, char *output);
 
 CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
 {
-    CacheManager *CacheManager = malloc(sizeof(CacheManager));
-    if (CacheManager == NULL)
+    CacheManager *cacheManager = malloc(sizeof(*cacheManager));
+    if (cacheManager == NULL)
         return NULL;
 
     // 2. Copiar configuración
-    strncpy(CacheManager->cacheDir, cacheDir, sizeof(CacheManager->cacheDir) - 1);
-    CacheManager->cacheDir[sizeof(CacheManager->cacheDir) - 1] = '\0';
-    CacheManager->ttl = ttl;
-    CacheManager->entryCount = 0;
+    cacheManager->cacheDir = strdup(cacheDir);
+    if (cacheManager->cacheDir == NULL)
+    {
+        free(cacheManager);
+        return NULL;
+    }
 
-    printf("CacheManager: Configuración - cacheDir=%s, ttl=%u\n", CacheManager->cacheDir, CacheManager->ttl);
+    cacheManager->ttl = ttl;
+    cacheManager->entryCount = 0;
 
     // 3. Reservar memoria para el índice en RAM
-    CacheManager->table = NULL;
-    CacheManager->entryCount = 0;
+    cacheManager->table = NULL;
+    cacheManager->entryCount = 0;
 
     // 4. Crear directorio si no existe
     struct stat st = {0};
@@ -29,21 +31,44 @@ CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
     {
         if (mkdir(cacheDir, 0755) == -1)
         {
-            free(CacheManager->table);
-            free(CacheManager);
+            free(cacheManager->cacheDir);
+            free(cacheManager->table);
+            free(cacheManager);
             return NULL;
         }
     }
 
     // 5. Inicializar mutex
-    if (pthread_mutex_init(&CacheManager->lock, NULL) != 0)
+    if (pthread_mutex_init(&cacheManager->lock, NULL) != 0)
     {
-        free(CacheManager->table);
-        free(CacheManager);
+        free(cacheManager->cacheDir);
+        free(cacheManager->table);
+        free(cacheManager);
         return NULL;
     }
 
-    return CacheManager;
+    return cacheManager;
+}
+
+void FreeCacheManager(CacheManager *cacheManager)
+{
+    if (cacheManager == NULL)
+        return;
+
+    pthread_mutex_destroy(&cacheManager->lock);
+
+    if (cacheManager->table != NULL)
+    {
+        CacheEntry *entry, *tmp;
+        HASH_ITER(hh, cacheManager->table, entry, tmp)
+        {
+            HASH_DEL(cacheManager->table, entry);
+            free(entry);
+        }
+    }
+
+    free(cacheManager->cacheDir);
+    free(cacheManager);
 }
 
 bool cacheKeyFromRequest(const HTTPRequest *request, char *outKey, size_t outKeyLen)
@@ -153,7 +178,7 @@ bool cache_store(CacheManager *cache, const char *cacheKey, const char *rawKey, 
 
 
 const char *MethodToString(HTTPMethod method)
-{
+{   
     if (method == GET)
         return "GET";
     if (method == HEAD)
@@ -161,7 +186,7 @@ const char *MethodToString(HTTPMethod method)
     return NULL;
 }
 
-static const char *findHeader(const HTTPHeaders *headers, const char *key)
+const char *findHeader(const HTTPHeaders *headers, const char *key)
 {
     for (size_t i = 0; i < headers->count; i++)
     {

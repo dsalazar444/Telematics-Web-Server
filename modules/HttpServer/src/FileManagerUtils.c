@@ -3,8 +3,9 @@
 #include <sys/stat.h>  // para stat()
 #include <stdio.h>     // para NULL
 #include <string.h>    // para strlen, strncpy, strncat, strrchr, strcasecmp
+#include <strings.h> // para strcasecmp
 #include <time.h>      // para gmtime, strftime
-#include <stdlib.h>    // para random()
+#include <stdlib.h>    // para rand()
 
 // FUNCIÓN: funciones que trabajan con strings y metadata, no tocan contenido del archivo
 // _documentRoot es local a este módulo (static)
@@ -89,7 +90,7 @@ int GenerateFileName(const char* contentType, char* outFileName) {
 
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    int randomByte = random() % 256;  // Genera byte aleatorio (0-255)
+    int randomByte = rand() % 256;  // Genera byte aleatorio (0-255)
     // verificamos que nueva url no exceda max_path_len porque habria desborde de buffer
     int written = snprintf(outFileName, MAX_PATH_LEN, "%ld%ld%d%s", (long)ts.tv_sec, (long)ts.tv_nsec, randomByte, ext);
     if (written < 0 || written >= MAX_PATH_LEN) {

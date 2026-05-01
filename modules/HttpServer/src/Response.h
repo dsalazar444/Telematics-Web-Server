@@ -2,6 +2,7 @@
 #define RESPONSE_H
 
 #include "../../../Includes/http.h"
+#include "../../../Includes/HttpUtils.h"
 #include "ResponseBody.h"
 #include "FileManager.h"
 #include "../../HttpParser/UriParser.h"

@@ -1,6 +1,6 @@
 #include "Response.h"
-#include "../../../Includes/HttpUtils.h"
 #include "ResponseBody.h"
+#include "../../../Includes/HttpUtils.h"
 #include <stdio.h>
 #include <string.h>
 #include <time.h>

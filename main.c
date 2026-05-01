@@ -30,7 +30,7 @@ int main()
     LoadBalancer *lb = LoadBalancerCreate(config.backends, config.backendCount);
     LoadBalancerPrint(lb);
 
-    // Crear la caché
+    // // Crear la caché
     CacheManager *cacheManager = CacheManagerCreate(config.cacheDir, config.ttl);
     if (cacheManager == NULL) {
         fprintf(stderr, "Error al crear el CacheManager\n");
@@ -52,7 +52,7 @@ int main()
         WorkerArgs *args = malloc(sizeof(WorkerArgs));
         args->client = client;
         args->lb = lb; // mismo puntero para todos
-        args->cacheManager = cacheManager; // pasar el puntero a la caché
+        // args->cacheManager = cacheManager; // pasar el puntero a la caché
         pthread_t thread;
         pthread_create(&thread, NULL, worker, args);
         pthread_detach(thread);
