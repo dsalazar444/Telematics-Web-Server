@@ -1,10 +1,6 @@
 #include "CacheManager.h"
 #define CACHE_MAX_ENTRIES 1000
 
-static const char *findHeader(const HTTPHeaders *headers, const char *key);
-const char *MethodToString(HTTPMethod method);
-void MD5Hash(const char *input, char *output);
-
 CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
 {
     CacheManager *CacheManager = malloc(sizeof(CacheManager));
@@ -16,8 +12,6 @@ CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
     CacheManager->cacheDir[sizeof(CacheManager->cacheDir) - 1] = '\0';
     CacheManager->ttl = ttl;
     CacheManager->entryCount = 0;
-
-    printf("CacheManager: Configuración - cacheDir=%s, ttl=%u\n", CacheManager->cacheDir, CacheManager->ttl);
 
     // 3. Reservar memoria para el índice en RAM
     CacheManager->table = NULL;
@@ -81,11 +75,11 @@ bool cacheKeyFromRequest(const HTTPRequest *request, char *outKey, size_t outKey
     return true;
 }
 
-const char *MethodToString(HTTPMethod method)
+const char *MethodToString(const char *method)
 {
-    if (method == GET)
+    if (strcasecmp(method, "GET") == 0)
         return "GET";
-    if (method == HEAD)
+    if (strcasecmp(method, "HEAD") == 0)
         return "HEAD";
     return NULL;
 }
