@@ -1,4 +1,5 @@
 #include "Response.h"
+#include <../../../Includes/HttpUtils.h>
 #include <time.h>
 
 static int ValidateLength(const char* uri);
@@ -112,6 +113,7 @@ static void AddFileResultHeaders(HTTPResponse* res, FileResult* fileResult) {
     }
 }
 
+// Headers: date, server, content-type, content-len y last_modif
 HTTPResponse* ResponseGet(FileResult* fileResult) {
     // si FileManager reportó error → response de error
     if (fileResult == NULL || FileResultGetStatusCode(fileResult) != 200) { // en get, si exito, solo retorno 200s
@@ -123,10 +125,8 @@ HTTPResponse* ResponseGet(FileResult* fileResult) {
     if (res == NULL) return NULL;
 
     // date y server
-    AddCommonHeaders(res); //TODO: debo mandar la que mandaría un get
-    // if contentlent es 0 -> obtener tamaño de html message y pasarlo en llamada como content-len, porque no puedo modificar atributos de fileResult, 
-    // poner set sería mala practica?
-    AddFileResultHeaders(res, fileResult); //Content-Type, Content-Length (TODO: debo mandar la que mandaría un get), Last-Modified
+    AddCommonHeaders(res); 
+    AddFileResultHeaders(res, fileResult); //Content-Type, Content-Length, Last-Modified
 
     // copiar body
     size_t bodyLen = FileResultGetContentLen(fileResult);
@@ -145,6 +145,7 @@ HTTPResponse* ResponseGet(FileResult* fileResult) {
 }
 
 // NO RETORNO HTML MESSAGE, pero sí su tamaño
+// Headers: date, server, content-type, content-len y last_modif. si archivo existe
 HTTPResponse* ResponseHead(FileResult* fileResult) {
     if (fileResult == NULL || FileResultGetStatusCode(fileResult) != 200) {
         int code = fileResult ? FileResultGetStatusCode(fileResult) : 500;
@@ -154,8 +155,21 @@ HTTPResponse* ResponseHead(FileResult* fileResult) {
     HTTPResponse* res = InitResponse(200);
     if (res == NULL) return NULL;
 
-    AddCommonHeaders(res);
-    AddFileResultHeaders(res, fileResult);
+    AddCommonHeaders(res); //Tdata y server
+    if (FileResultGetContentLen(res) != 0) { // porque significa que se le asignó de forma correcta en FM
+        AddFileResultHeaders(res, fileResult);
+
+    } else {
+        size_t bodyLen = 0;
+        unsigned char* tmp = GenerateErrorBody(404, "Not Found", &bodyLen);
+        free(tmp); // Solo interesa bodyLen
+        
+        char lenStr[32];
+        snprintf(lenStr, sizeof(lenStr), "%zu", bodyLen); // convertimos num a text
+        AddHeader(res, "Content-Type",   "text/html");
+        AddHeader(res, "Content-Length", lenStr);
+        //last_modified no porque archivo solicitado no existe    
+    }
 
     // sin body — eso es todo lo que diferencia HEAD de GET
     res->body = NULL;
@@ -163,7 +177,8 @@ HTTPResponse* ResponseHead(FileResult* fileResult) {
 
     return res;
 }
-// en fresult, me llega solo status code y location, si aplica, porque el body (content, contenttype (html), contentlenght), se genera acá
+
+// en fresult, me llega solo status code y location, si aplica, porque el body (body, contenttype (html), contentlenght), se genera acá porque es el html message
 HTTPResponse* ResponsePost(const HTTPRequest* req, FileResult* fileResult) {
     if (fileResult == NULL) return ResponseError(500);
 
@@ -183,7 +198,7 @@ HTTPResponse* ResponsePost(const HTTPRequest* req, FileResult* fileResult) {
     const char* location = FileResultGetLocation(fileResult);
     if (location != NULL && location[0] != '\0') { // o sea, code es 201
         // construir URL completa con Host del request
-        const char* host = GetHeaderValue(&req->headers, "Host"); // TODO: NO LO TENGO
+        const char* host = GetHeaderValue(&req->headers, "Host"); 
         if (host != NULL) {
             char fullLocation[512];
             snprintf(fullLocation, sizeof(fullLocation), "http://%s%s", host, location);

@@ -73,7 +73,7 @@ FileResult* FileHead(const char* absPath) {
         // RFC 9.4 dice que Content-Length debe ser el mismo que tendría un GET equivalente 
         result->_contentLen = pathStat.st_size;
     } else{
-        result->_contentLen ='\0'; // para en response asignarle tamaño de html message
+        result->_contentLen = 0; // para en response asignarle tamaño de html message
     }
 
     return result;
