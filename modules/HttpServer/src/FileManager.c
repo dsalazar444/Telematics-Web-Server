@@ -69,19 +69,20 @@ FileResult* FileHead(const char* absPath) {
     // HEAD solo necesita metadata — no llama ReadFile
     GetFileMetadata(absPath, realPath, &pathStat, result);
 
-    // TO DO ----------------------------------------------- SE MANDA SIEMPRE, INCLUSO SI FALLA 
-    if (result->_statusCode == 200) { //si archivo no existe, o carpeta sin index, da codigo diferente -> ~contentLen
+    if (result->_statusCode == 200) {
         // RFC 9.4 dice que Content-Length debe ser el mismo que tendría un GET equivalente 
         result->_contentLen = pathStat.st_size;
+    } else{
+        result->_contentLen ='\0'; // para en response asignarle tamaño de html message
     }
 
     return result;
 }
 
 // Orquesta todo del post (path de post es una carpeta, para crear archivo ahi, o un archivo a modificar)
-// Headers que genera:
-// statusCode, contentLen, location, 
-// TODO : contentLen qué, voy a devolver entity?,si sí, hay que devolver content, contentType
+// atributos que asigna a fileresult (no headers):
+// statusCode, location, 
+// atributos que no: content, contentLen, mime, last_mod, location, 
 FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, const char* contentType) {
     FileResult* result = InitResult();
     if (result == NULL) return NULL;
@@ -94,7 +95,7 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
         return result;
      }
 
-    result->_contentLen = 0;
+    //result->_contentLen = 0; porque retornamos html descriptivo, entonces ese tamaño se calcula cuando se genere tal html
     int isNew = 0;
 
     // 2. stat() para ver si es directorio
@@ -104,7 +105,10 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
     if (stat(realPath, &pathStat) == 0 && S_ISDIR(pathStat.st_mode)) {
         char fileName[256];
         pthread_mutex_lock(&_writeMutex);
-        GenerateFileName(contentType, fileName); //mutex porque dos workers pueden tener mismo timestamp, poco probable, pero ajá
+        if(!GenerateFileName(contentType, fileName)){
+            result->_statusCode = 500; // error de server porque fue por limitaciones nuestras que no pudimos procesar la peticion -> nueva uri muy larga
+            return result;
+        } //mutex porque dos workers pueden tener mismo timestamp, poco probable, pero ajá
 
         // 4. construir ruta completa del archivo nuevo (ejm: ./www/uploads/1714392000123.html)
         char newFilePath[MAX_PATH_LEN];
@@ -153,3 +157,12 @@ void FileResultFree(FileResult* result) {
     }
     free(result);
 }
+
+
+// getter
+int            FileResultGetStatusCode(const FileResult* r)   { return r->_statusCode; }
+const char*    FileResultGetMimeType(const FileResult* r)     { return r->_mimeType; }
+const char*    FileResultGetLastModified(const FileResult* r) { return r->_lastModified; }
+const char*    FileResultGetLocation(const FileResult* r)     { return r->_location; }
+unsigned char* FileResultGetContent(const FileResult* r)      { return r->_content; }
+size_t         FileResultGetContentLen(const FileResult* r)   { return r->_contentLen; }
