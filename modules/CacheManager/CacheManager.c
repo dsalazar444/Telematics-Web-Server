@@ -131,7 +131,7 @@ bool cache_store(CacheManager *cache, const char *cacheKey, const char *rawKey, 
     // 3. Buscar Content-Type en los headers
     const char *contentType = "application/octet-stream";  // default
     
-    contentType = GetHeaderValue(&response->headers, "Content-Type");
+    contentType = findHeader(&response->headers, "Content-Type");
 
     // 4. Escribir el meta
     FILE *metaFile = fopen(metaPath, "w");

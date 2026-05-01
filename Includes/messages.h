@@ -2,12 +2,11 @@
 #define MESSAGES_H
 
 #include "http.h"
-#include "LoadBalancer/loadBalancer.h"
+#include <stdbool.h>
 
-// WS → Caché/Proxy
 typedef struct {
     HTTPResponse response;
-    HTTPRequest  originalRequest;
+    const HTTPRequest *request;
     char         cacheKey[512];
     bool         shouldCache;
     bool         shouldReplicate;
