@@ -1,5 +1,6 @@
 #include "Worker.h"
 #include "../HttpParser/HttpParser.h"
+#include "../HttpParser/ErrorResponse.h"
 
 void *worker(void *arg)
 {
@@ -7,10 +8,9 @@ void *worker(void *arg)
 
     IClientSocket *client = workerArgs->client;
     LoadBalancer *lb = workerArgs->lb;
-
-    // Recibir la petición
+    CacheManager *cacheManager = workerArgs->cacheManager;
+  
     char buffer[4096];
-
     char requestBuffer[4096];
     int requestLen = 0;
     while (1)
@@ -19,7 +19,6 @@ void *worker(void *arg)
         int bytes = RecvFromClient(client, buffer, sizeof(buffer));
         if (bytes <= 0) break;
 
-        // Acumular en request_buffer
         if (requestLen + bytes >= sizeof(requestBuffer)) {
             printf("Error: petición demasiado grande\n");
             break;
@@ -42,22 +41,34 @@ void *worker(void *arg)
             SendToClient(client, bad_request, strlen(bad_request));
             break;
         }
-        int expectedSize = headerSize + contentLength;
 
+        int expectedSize = headerSize + contentLength;
         if (requestLen < expectedSize)
         {
             continue;
         }
 
         // Ya tenemos la petición completa (headers)
-        HTTPRequest *request = ParseHTTPRequest(requestBuffer, headerSize, contentLength);
+        unsigned short statusCode = 0;
+        HTTPRequest *request = ParseHTTPRequest(requestBuffer, headerSize, contentLength, &statusCode);
         if (request == NULL)
         {
-            printf("Error: No se pudo parsear la petición HTTP\n");
+            size_t responseSize = 0;
+            char *errorResponse = BuildErrorResponse(statusCode, &responseSize);
+            if (errorResponse != NULL) {
+                SendToClient(client, errorResponse, responseSize);
+                free(errorResponse);
+            } else {
+                // Fallback simple message
+                const char *fallback = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 21\r\nConnection: close\r\n\r\nInternal Server Error";
+                SendToClient(client, fallback, strlen(fallback));
+            }
+            // Limpiar buffer tras error y continuar (no cerramos la conexión)
             requestLen = 0;
             memset(requestBuffer, 0, sizeof(requestBuffer));
             continue;
         }
+
         PrintHttpRequest(request);
 
         ConnectToBackendAndForward(workerArgs, request);
@@ -89,93 +100,6 @@ void ConnectToBackendAndForward(WorkerArgs *workerArgs, const HTTPRequest *reque
     // yo  genero el proxymessage
     IncrementActiveConnections(lb, &backend);
 }
-
-// void PrintHttpRequest(const HTTPRequest *request) {
-//     printf("Method: %d\n", request->method);
-//     printf("Path: %s\n", request->path);
-//     printf("Version: %s\n", request->version);
-//     printf("Headers:\n");
-//     for (size_t i = 0; i < request->headers.count; i++) {
-//         printf("  %s: %s\n", request->headers.headers[i].key, request->headers.headers[i].value);
-//     }
-//     if (request->body) {
-//         printf("Body length: %zu\n", request->bodyLength); 
-//     } else {
-//         printf("No Body\n");
-//     }
-// }
-
-// static int GetRequestSizes(const char *requestBuffer, int *headerSize, int *contentLength)
-// {
-//     const char *headersEnd = strstr(requestBuffer, "\r\n\r\n");
-//     if (headersEnd == NULL)
-//     {
-//         return 0;
-//     }
-
-//     *headerSize = (int)(headersEnd - requestBuffer) + 4;
-//     *contentLength = 0;
-
-//     const char *lineStart = strstr(requestBuffer, "\r\n");
-//     if (lineStart == NULL || lineStart >= headersEnd)
-//     {
-//         return -1;
-//     }
-
-//     lineStart += 2;
-
-//     while (lineStart < headersEnd)
-//     {
-//         const char *lineEnd = strstr(lineStart, "\r\n");
-//         if (lineEnd == NULL || lineEnd > headersEnd)
-//         {
-//             return -1;
-//         }
-
-//         if (lineEnd == lineStart)
-//         {
-//             break;
-//         }
-
-//         const char *colon = memchr(lineStart, ':', (size_t)(lineEnd - lineStart));
-//         if (colon != NULL)
-//         {
-//             size_t keyLen = (size_t)(colon - lineStart);
-//             if (keyLen == strlen("Content-Length") && strncasecmp(lineStart, "Content-Length", keyLen) == 0)
-//             {
-//                 const char *valueStart = colon + 1;
-//                 while (valueStart < lineEnd && (*valueStart == ' ' || *valueStart == '\t'))
-//                 {
-//                     valueStart++;
-//                 }
-
-//                 char valueBuffer[32];
-//                 size_t valueLen = (size_t)(lineEnd - valueStart);
-//                 if (valueLen == 0 || valueLen >= sizeof(valueBuffer))
-//                 {
-//                     return -1;
-//                 }
-
-//                 memcpy(valueBuffer, valueStart, valueLen);
-//                 valueBuffer[valueLen] = '\0';
-
-//                 char *endPtr = NULL;
-//                 long parsed = strtol(valueBuffer, &endPtr, 10);
-//                 if (*endPtr != '\0' || parsed < 0 || parsed > 1024 * 1024)
-//                 {
-//                     return -1;
-//                 }
-
-//                 *contentLength = (int)parsed;
-//                 return 1;
-//             }
-//         }
-
-//         lineStart = lineEnd + 2;
-//     }
-
-//     return 1;
-// }
 
 void PrintHttpRequest(const HTTPRequest *request) {
     printf("Method: %d\n", request->method);

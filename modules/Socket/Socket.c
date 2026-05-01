@@ -9,7 +9,8 @@
 
 #include "../../Includes/ISocket.h"
 
-int SetIPv6Only(int fd, int enable){
+int SetIPv6Only(int fd, int enable)
+{
     int opt = enable;
     if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &opt, sizeof(opt)) < 0)
     {
@@ -20,7 +21,8 @@ int SetIPv6Only(int fd, int enable){
     return 0;
 }
 
-int CreateDualStackSocket(){
+int CreateDualStackSocket()
+{
     int fd = socket(AF_INET6, SOCK_STREAM, 0);
     if (fd < 0)
     {
@@ -37,7 +39,8 @@ int CreateDualStackSocket(){
     return fd;
 }
 
-int BindSocket(ISocketListener *self, const char *host, int port){
+int BindSocket(ISocketListener *self, const char *host, int port)
+{
     // Estructura de sockets que necesita POSIX para bind()
     struct sockaddr_in6 addr;
     memset(&addr, 0, sizeof(addr));
@@ -65,7 +68,8 @@ int BindSocket(ISocketListener *self, const char *host, int port){
     return 0;
 }
 
-int ListenSocket(ISocketListener *self, int backlog){
+int ListenSocket(ISocketListener *self, int backlog)
+{
     if (listen(self->fd, backlog) < 0)
     {
         perror("listen");
@@ -74,11 +78,11 @@ int ListenSocket(ISocketListener *self, int backlog){
     return 0;
 }
 
-IClientSocket* AcceptSocket(ISocketListener *self){
+IClientSocket *AcceptSocket(ISocketListener *self)
+{
     // Crea la estructura necesaria para guardar la informacion del cliente que se va a conectar, y un entero con el tamaño de esta estructura
     struct sockaddr_in6 clientAddr;
     socklen_t addrLen = sizeof(clientAddr); // Usa este tipo de dato ya que es el estandar y adiccional evita errores
-
 
     // Acepta la conexion entrante, y guarda la informacion del cliente en clientAddr, si es menor a 0 hubo un error
     int clientFd = accept(self->fd, (struct sockaddr *)&clientAddr, &addrLen);
@@ -95,7 +99,8 @@ IClientSocket* AcceptSocket(ISocketListener *self){
     return client;
 }
 
-int RecvFromClient(IClientSocket *client, char *buf, int size){
+int RecvFromClient(IClientSocket *client, char *buf, int size)
+{
     int bytesRead = recv(client->fd, buf, size, 0);
     if (bytesRead < 0)
     {
@@ -105,7 +110,8 @@ int RecvFromClient(IClientSocket *client, char *buf, int size){
     return bytesRead;
 }
 
-int SendToClient(IClientSocket *client, const char *data, int size){
+int SendToClient(IClientSocket *client, const char *data, int size)
+{
     int bytesSent = send(client->fd, data, size, 0);
     if (bytesSent < 0)
     {
@@ -115,8 +121,8 @@ int SendToClient(IClientSocket *client, const char *data, int size){
     return bytesSent;
 }
 
-void CloseClientSocket(IClientSocket *client){
+void CloseClientSocket(IClientSocket *client)
+{
     close(client->fd);
     free(client);
 }
-

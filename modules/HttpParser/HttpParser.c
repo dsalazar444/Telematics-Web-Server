@@ -4,18 +4,22 @@
 #include <strings.h>
 #include <stdio.h>
 
-HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t contentLength)
+HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t contentLength, unsigned short *statusCode)
 {
     HTTPRequest *request = malloc(sizeof(HTTPRequest));
-    if (request == NULL)
+    if (request == NULL) {
+        *statusCode = 500;  // Internal Server Error
         return NULL;
+    }
     memset(request, 0, sizeof(HTTPRequest));
+    *statusCode = 0;  // Asumir válido por defecto
 
     const char *headersEnd = buffer + headerSize;
 
     const char *requestLineEnd = strstr(buffer, "\r\n");
     if (requestLineEnd == NULL || requestLineEnd > headersEnd)
     {
+        *statusCode = 400;  // Bad Request porque no se encuentra \r\n
         free(request);
         return NULL;
     }
@@ -24,6 +28,7 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
     size_t requestLineLen = (size_t)(requestLineEnd - buffer);
     if (requestLineLen == 0 || requestLineLen >= sizeof(requestLine))
     {
+        *statusCode = 400;  // Bad Request porque la línea de petición es demasiado larga o vacía
         free(request);
         return NULL;
     }
@@ -33,6 +38,7 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
     char method[16] = {0};
     if (sscanf(requestLine, "%15s %255s %9s", method, request->path, request->version) != 3)
     {
+        *statusCode = 400;  // No puede obtener las partes de la línea de petición
         free(request);
         return NULL;
     }
@@ -40,9 +46,20 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
 
     if (request->method == -1)
     {
+        *statusCode = 405;  // Method Not Allowed
         free(request);
         return NULL;
     }
+
+    // Agregar uriParser
+    ParsedURI parsedURI = UriParse(request->path);
+    if (!parsedURI._isValid)
+    {
+        *statusCode = parsedURI._statusCode != 0 ? parsedURI._statusCode : 400;  // Usar el código de estado específico si se estableció
+        free(request);
+        return NULL;
+    }
+    
 
     char headersCopy[headerSize + 1];
     memcpy(headersCopy, buffer, headerSize); 
@@ -56,6 +73,7 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
         const char *lineEnd = strstr(lineStart, "\r\n");
         if (lineEnd == NULL || lineEnd > headersEndCopy)
         {
+            *statusCode = 400;  // Bad Request Header mal formulado
             free(request);
             return NULL;
         }
@@ -67,6 +85,7 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
 
         if (request->headers.count >= 100)
         {
+            *statusCode = 431;  // Request Header Fields Too Large
             free(request);
             return NULL;
         }
@@ -114,6 +133,7 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
         request->body = malloc(contentLength); 
         if (request->body == NULL)
         {
+            *statusCode = 500;  // Internal Server Error
             free(request);
             return NULL;
         }
@@ -144,4 +164,50 @@ HTTPMethod ParseMethod(const char *method)
     if (strcasecmp(method, "TRACE") == 0)
         return TRACE;
     return -1;
+}
+
+char *BuildErrorResponse(unsigned short statusCode, size_t *outSize)
+{
+    char *buffer = malloc(512);
+    if (buffer == NULL) return NULL;
+    
+    const char *message = "";
+    const char *status = "";
+    
+    switch(statusCode) {
+        case 400:
+            status = "400 Bad Request";
+            message = "Bad Request";
+            break;
+        case 405:
+            status = "405 Method Not Allowed";
+            message = "Method Not Allowed";
+            break;
+        case 414:
+            status = "414 URI Too Long";
+            message = "URI Too Long";
+            break;
+        case 431:
+            status = "431 Request Header Fields Too Large";
+            message = "Request Header Fields Too Large";
+            break;
+        case 500:
+            status = "500 Internal Server Error";
+            message = "Internal Server Error";
+            break;
+        default:
+            status = "400 Bad Request";
+            message = "Bad Request";
+    }
+    
+    int len = snprintf(buffer, 512,
+        "HTTP/1.1 %s\r\n"
+        "Content-Type: text/plain\r\n"
+        "Content-Length: %zu\r\n"
+        "Connection: close\r\n"
+        "\r\n%s",
+        status, strlen(message), message);
+    
+    *outSize = len;
+    return buffer;
 }

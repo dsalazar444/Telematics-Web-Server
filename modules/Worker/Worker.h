@@ -14,7 +14,7 @@
 typedef struct {
     IClientSocket *client;
     LoadBalancer *lb;   // Compartido entre todos los workers
-    Cache *cacheManager;       // Puntero a la caché compartida
+    CacheManager *cacheManager;       // Puntero a la caché compartida
 } WorkerArgs;
 
 void* worker(void* arg);

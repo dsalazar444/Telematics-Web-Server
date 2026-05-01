@@ -40,9 +40,9 @@ typedef struct
     CacheEntry *table;
     uint16_t entryCount;
     pthread_mutex_t lock;
-} Cache;
+} CacheManager;
 
-Cache *CacheManagerCreate(const char *cacheDir, uint16_t ttl);
+CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl);
 bool cacheKeyFromRequest(const HTTPRequest *request, char *outKey, size_t outKeyLen);
 const char* MethodToString(const char *method);
 void MD5Hash(const char *input, char *output);

@@ -34,6 +34,7 @@ Config LoadConfig(const char* filepath) {
         if (line[0] == '#' || line[0] == '\n') continue;
         if (sscanf(line, "PORT=%d", &config.port) == 1) continue;
         if (sscanf(line, "TTL=%d", &config.ttl) == 1) continue;
+        if (sscanf(line, "CACHE_DIR=%d", &config.cacheDir) == 1) continue;
 
         // Leer backends
         if (strncmp(line, "BACKEND_NODE=", 13) == 0 && config.backends) {

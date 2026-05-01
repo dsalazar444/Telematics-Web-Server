@@ -1,9 +1,9 @@
 #include "CacheManager.h"
 #define CACHE_MAX_ENTRIES 1000
 
-Cache *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
+CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
 {
-    Cache *CacheManager = malloc(sizeof(Cache));
+    CacheManager *CacheManager = malloc(sizeof(CacheManager));
     if (CacheManager == NULL)
         return NULL;
 
@@ -12,6 +12,8 @@ Cache *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
     CacheManager->cacheDir[sizeof(CacheManager->cacheDir) - 1] = '\0';
     CacheManager->ttl = ttl;
     CacheManager->entryCount = 0;
+
+    printf("CacheManager: Configuración - cacheDir=%s, ttl=%u\n", CacheManager->cacheDir, CacheManager->ttl);
 
     // 3. Reservar memoria para el índice en RAM
     CacheManager->table = NULL;
