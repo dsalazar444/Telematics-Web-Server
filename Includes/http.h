@@ -1,5 +1,5 @@
-#ifndef STRUCTS_H
-#define STRUCTS_H
+#ifndef HTTP_H
+#define HTTP_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -43,5 +43,5 @@ typedef struct {
 } HTTPResponse;
 
 
-#endif // STRUCTS_H
+#endif 
 

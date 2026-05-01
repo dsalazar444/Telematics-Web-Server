@@ -1,4 +1,5 @@
 #include <Response.h>
+#include <../../../Includes/HttpUtils.h>
 #include <time.h>
 
 static const char* GetReasonPhrase(int statusCode) {
@@ -190,7 +191,7 @@ HTTPResponse* ResponsePost(const HTTPRequest* req, FileResult* fileResult) {
     const char* location = FileResultGetLocation(fileResult);
     if (location != NULL && location[0] != '\0') { // o sea, code es 201
         // construir URL completa con Host del request
-        const char* host = GetHeaderValue(&req->headers, "Host"); // TODO: NO LO TENGO
+        const char* host = GetHeaderValue(&req->headers, "Host"); 
         if (host != NULL) {
             char fullLocation[512];
             snprintf(fullLocation, sizeof(fullLocation), "http://%s%s", host, location);
