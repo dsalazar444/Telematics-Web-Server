@@ -10,7 +10,7 @@ void *worker(void *arg)
     IClientSocket *client = workerArgs->client;
     LoadBalancer *lb = workerArgs->lb;
     CacheManager *cacheManager = workerArgs->cacheManager;
-  
+
     char buffer[4096];
     char requestBuffer[4096];
     int requestLen = 0;
@@ -99,7 +99,7 @@ void ConnectToBackendAndForward(WorkerArgs *workerArgs, const HTTPRequest *reque
     // 6. Reenviar la respuesta al cliente original usando SendToClient(workerArgs->client, ...)
     LoadBalancer *lb = workerArgs->lb;
     BackendNode backend = LoadBalancerSelectBackend(lb);
-    // yo  genero el proxymessage
+    // yo genero el proxymessage
     IncrementActiveConnections(lb, &backend);
 }
 

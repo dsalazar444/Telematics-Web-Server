@@ -2,7 +2,7 @@
 #define MESSAGES_H
 
 #include "http.h"
-#include "LoadBalancer/loadBalancer.h"
+#include <stdbool.h>
 
 // WS → Caché/Proxy
 typedef struct {
