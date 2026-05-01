@@ -2,6 +2,13 @@
 #include <string.h>
 #include <stdlib.h>
 
+static int ValidateLength(const char* uri);
+static int ExtractPath(const char* uri, char* outPath, char* outQuery);
+static void HandleEmptyPath(ParsedURI* result);
+static void DecodePercent(char* path);
+static void NormalizePath(char* path);
+static int CheckTraversal(const char* path);
+
 ParsedURI UriParse(const char* rawUri) {
     // Inicializamos parsedUri
     ParsedURI result;

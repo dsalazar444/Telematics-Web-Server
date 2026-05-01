@@ -44,7 +44,7 @@ typedef struct
 
 CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl);
 bool cacheKeyFromRequest(const HTTPRequest *request, char *outKey, size_t outKeyLen);
-const char* MethodToString(const char *method);
+const char* MethodToString(HTTPMethod method);
 void MD5Hash(const char *input, char *output);
 
 #endif // CACHE_H

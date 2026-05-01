@@ -1,6 +1,7 @@
 #include "Worker.h"
 #include "../HttpParser/HttpParser.h"
-#include "../HttpParser/ErrorResponse.h"
+#include "../HttpServer/src/Response.h"
+#include "../HttpServer/src/ResponseSender.h"
 
 void *worker(void *arg)
 {
@@ -51,18 +52,19 @@ void *worker(void *arg)
         // Ya tenemos la petición completa (headers)
         unsigned short statusCode = 0;
         HTTPRequest *request = ParseHTTPRequest(requestBuffer, headerSize, contentLength, &statusCode);
-        if (request == NULL)
+        if (request == NULL || statusCode != 0)
         {
-            size_t responseSize = 0;
-            char *errorResponse = BuildErrorResponse(statusCode, &responseSize);
-            if (errorResponse != NULL) {
-                SendToClient(client, errorResponse, responseSize);
-                free(errorResponse);
+            // Construir respuesta usando ResponseError (centraliza headers y body)
+            HTTPResponse *response = ResponseError((int)statusCode);
+            if (response != NULL) {
+                // enviar usando helper reutilizable
+                SendHTTPResponse(client, response);
+                ResponseFree(response);
             } else {
-                // Fallback simple message
                 const char *fallback = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 21\r\nConnection: close\r\n\r\nInternal Server Error";
                 SendToClient(client, fallback, strlen(fallback));
             }
+
             // Limpiar buffer tras error y continuar (no cerramos la conexión)
             requestLen = 0;
             memset(requestBuffer, 0, sizeof(requestBuffer));

@@ -1,6 +1,10 @@
 #include "CacheManager.h"
 #define CACHE_MAX_ENTRIES 1000
 
+static const char *findHeader(const HTTPHeaders *headers, const char *key);
+const char *MethodToString(HTTPMethod method);
+void MD5Hash(const char *input, char *output);
+
 CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
 {
     CacheManager *CacheManager = malloc(sizeof(CacheManager));
@@ -77,11 +81,11 @@ bool cacheKeyFromRequest(const HTTPRequest *request, char *outKey, size_t outKey
     return true;
 }
 
-const char *MethodToString(const char *method)
+const char *MethodToString(HTTPMethod method)
 {
-    if (strcasecmp(method, "GET") == 0)
+    if (method == GET)
         return "GET";
-    if (strcasecmp(method, "HEAD") == 0)
+    if (method == HEAD)
         return "HEAD";
     return NULL;
 }

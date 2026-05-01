@@ -2,7 +2,12 @@
 #define RESPONSE_H
 
 #include "../../../Includes/http.h"
+#include "ResponseBody.h"
 #include "FileManager.h"
+#include "../../HttpParser/UriParser.h"
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h> 
 
 HTTPResponse* ResponseGet(FileResult* fileResult);
 HTTPResponse* ResponseHead(FileResult* fileResult);

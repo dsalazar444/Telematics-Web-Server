@@ -31,7 +31,7 @@ int main()
     LoadBalancerPrint(lb);
 
     // Crear la caché
-    Cache *cacheManager = CacheManagerCreate(config.cacheDir, config.ttl);
+    CacheManager *cacheManager = CacheManagerCreate(config.cacheDir, config.ttl);
     if (cacheManager == NULL) {
         fprintf(stderr, "Error al crear el CacheManager\n");
         FreeLoadBalancer(lb);
