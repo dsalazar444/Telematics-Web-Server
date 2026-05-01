@@ -17,7 +17,7 @@ void FileManagerInit(const char* root) {
     if (root != NULL) FileManagerSetRoot(root);
 }
 
-FileResult* InitResult(){
+static FileResult* InitResult(){
     FileResult* result = malloc(sizeof(FileResult));
     if (result == NULL) {
         // malloc falló

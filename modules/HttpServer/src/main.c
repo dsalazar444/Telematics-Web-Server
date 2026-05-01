@@ -2,12 +2,13 @@
 #include "../../Socket/Socket.h"
 #include <stdio.h>
 #include <pthread.h>
-//#include "modules/Worker/Worker.h"
+#include "Worker.h"
 #include <stdlib.h>
 
 const int PORT = 8082;
 
 int main() {
+    //FileManagerInit("./www"); //TODO: revisar si esto basta para usar HandleGet en worker, etc
     ISocketListener listener;
     listener.fd = CreateDualStackSocket();
     if (listener.fd < 0)
@@ -20,23 +21,28 @@ int main() {
 
     printf("Servidor HTTP escuchando en puerto %d\n", PORT);
 
-
     while (1)
     {
-        IClientSocket *client = AcceptSocket(&listener);
-        if (client == NULL)
+        IClientSocket* client = AcceptSocket(&listener);
+        if (client == NULL) continue;
+
+        printf("Cliente conectado fd: %d\n", client->fd);
+
+        WorkerWSArgs* args = malloc(sizeof(WorkerWSArgs));
+        if (args == NULL) {
+            // TODO: liberar client
             continue;
+        }
+        args->client = client;
 
-        printf("%d\n", client->fd);
+        pthread_t thread;
+        if (pthread_create(&thread, NULL, WorkerRun, args) != 0) {
+            fprintf(stderr, "Error creando thread\n");
+            free(args);
+            continue;
+        }
+        pthread_detach(thread);
     }
-    //     WorkerArgs *args = malloc(sizeof(WorkerArgs)); // TODO CAMBIAR PARA MI WORKER
-    //     args->client = client;
-
-    //     pthread_t thread;
-    //     pthread_create(&thread, NULL, worker, args);
-    //     // TODO la logica o acciones de worker_server estan en worker.c mio
-    //     pthread_detach(thread);
-    // }
     // Cuando ya no se necesite la configuración ni el load balancer:
     //FreeLoadBalancer(lb); // Si tienes una función para liberar el load balancer TODO
     return 0;

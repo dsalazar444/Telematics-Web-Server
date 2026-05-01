@@ -5,7 +5,7 @@
 #include "../../../Includes/HttpUtils.h"
 #include "ResponseBody.h"
 #include "FileManager.h"
-#include "../../HttpParser/UriParser.h"
+//#include "../../HttpParser/UriParser.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h> 

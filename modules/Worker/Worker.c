@@ -118,6 +118,10 @@ void PrintHttpRequest(const HTTPRequest *request) {
     }
 }
 
+// analiza buffer de la petición, y mira donde donde terminan los headers, y el tamaño del body, si lo incluye
+// retorna: 0 -> no hay final de headers -> no hay secuencia \r\n\r\
+// -1 -> si hay errores de formato (headers mal formateados, etc.)
+// 1 -> ok
 static int GetRequestSizes(const char *requestBuffer, int *headerSize, int *contentLength)
 {
     const char *headersEnd = strstr(requestBuffer, "\r\n\r\n");

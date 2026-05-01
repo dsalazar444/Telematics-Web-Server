@@ -20,6 +20,6 @@ typedef struct {
 void* worker(void* arg);
 void ConnectToBackendAndForward(WorkerArgs *w, const HTTPRequest *request);
 void PrintHttpRequest(const HTTPRequest *request);
-static int GetRequestSizes(const char *requestBuffer, int *headerSize, int *contentLength);
+int GetRequestSizes(const char *requestBuffer, int *headerSize, int *contentLength);
 
 #endif
