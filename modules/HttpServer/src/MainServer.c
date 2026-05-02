@@ -7,7 +7,7 @@
 
 const int PORT = 8082;
 
-int main() {
+int runServer() {
     ISocketListener listener;
     listener.fd = CreateDualStackSocket();
     if (listener.fd < 0)
