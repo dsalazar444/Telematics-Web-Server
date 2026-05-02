@@ -7,7 +7,7 @@
 
 const int PORT = 8082;
 
-int mainServer() {
+int main() {
     ISocketListener listener;
     listener.fd = CreateDualStackSocket();
     if (listener.fd < 0)
@@ -18,7 +18,7 @@ int mainServer() {
     if (ListenSocket(&listener, 128) < 0)
         return 1;
 
-    printf("Servidor HTTP escuchando en puerto %d\n", PORT);
+    printf("Servidor HTTP MIOOO escuchando en puerto %d\n", PORT);
 
     while (1)
     {

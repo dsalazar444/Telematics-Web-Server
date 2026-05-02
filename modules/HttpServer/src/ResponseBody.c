@@ -4,6 +4,8 @@
 #include <string.h>
 
 unsigned char* GenerateErrorBody(int statusCode, const char* statusMessage, size_t* outLen) {
+    printf("entré a generateerrorbody\n");
+
     char buffer[1024];//buffer local -> espacio estatico
 
     // con buffer local, obtenemos el tamaño que debe tener un buffer para guardar nuestro mensaje html
@@ -32,6 +34,8 @@ unsigned char* GenerateErrorBody(int statusCode, const char* statusMessage, size
 }
 
 unsigned char* GenerateCreatedBody(const char* location, size_t* outLen) {
+    printf("entre a generatecreatedbody\n");
+
     char buffer[1024];
     int len = snprintf(buffer, sizeof(buffer),
         "<!DOCTYPE html>\n"
@@ -57,6 +61,8 @@ unsigned char* GenerateCreatedBody(const char* location, size_t* outLen) {
 
 // para code 200 en post, en get no se manda nada
 unsigned char* GenerateSuccesfulBody(int statusCode, const char* statusMessage, size_t* outLen) {
+    printf("entre a generatesuccessfulbody\n");
+
     char buffer[1024];//buffer local -> espacio estatico
 
     // con buffer local, obtenemos el tamaño que debe tener un buffer para guardar nuestro mensaje html

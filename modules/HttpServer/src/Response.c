@@ -65,6 +65,8 @@ static void AddCommonHeaders(HTTPResponse* res) {
 }
 
 HTTPResponse* ResponseError(int statusCode) {
+    printf("entre a responserror\n");
+
     HTTPResponse* res = InitResponse(statusCode); // res-> code y codeMessage
     if (res == NULL) return NULL;
 
@@ -97,6 +99,8 @@ HTTPResponse* ResponseError(int statusCode) {
 
 
 HTTPResponse* ResponseErrorHead(int statusCode) {
+    printf("entre a responserrorhead\n");
+
     HTTPResponse* res = ResponseError(statusCode);
     if (res == NULL) return NULL;
     
@@ -125,11 +129,14 @@ static void AddFileResultHeaders(HTTPResponse* res, FileResult* fileResult) {
 
 // Headers: date, server, content-type, content-len y last_modif
 HTTPResponse* ResponseGet(FileResult* fileResult) {
+    printf("entre a responseget\n");
+
     // si FileManager reportó error → response de error
     if (fileResult == NULL || FileResultGetStatusCode(fileResult) != 200) { // en get, si exito, solo retorno 200s
         int code = fileResult ? FileResultGetStatusCode(fileResult) : 500;
         return ResponseError(code);
     }
+    printf("responsecode es 200\n");
 
     HTTPResponse* res = InitResponse(200); // porque no cayó en if -> status = 200
     if (res == NULL) return NULL;
@@ -141,6 +148,8 @@ HTTPResponse* ResponseGet(FileResult* fileResult) {
     // copiar body
     size_t bodyLen = FileResultGetContentLen(fileResult);
     if (bodyLen == 0) {
+        printf("body es 0\n");
+
         ResponseFree(res);
         return ResponseError(500);
     }
@@ -155,6 +164,7 @@ HTTPResponse* ResponseGet(FileResult* fileResult) {
     memcpy(body, FileResultGetContent(fileResult), bodyLen);
     res->body = body;
     res->bodyLength = bodyLen;
+    printf("ok en responseget\n");
 
     return res;
 }
@@ -162,13 +172,19 @@ HTTPResponse* ResponseGet(FileResult* fileResult) {
 // NO RETORNO HTML MESSAGE, pero sí su tamaño
 // Headers: date, server, content-type, content-len y last_modif. si archivo existe
 HTTPResponse* ResponseHead(FileResult* fileResult) {
+    printf("entre a responsehead\n");
+
     if (fileResult == NULL) return ResponseErrorHead(500);
+
+    printf("fr no es null\n");
 
     int statusCode = FileResultGetStatusCode(fileResult);
 
     // si hay error → ResponseErrorHead ya maneja todo
+    printf("status: %d\n", statusCode);
     if (statusCode != 200) return ResponseErrorHead(statusCode);
-
+    printf("code es 200\n");
+    
     // éxito → construir response normal sin body
     HTTPResponse* res = InitResponse(200);
     if (res == NULL) return NULL;
@@ -176,15 +192,20 @@ HTTPResponse* ResponseHead(FileResult* fileResult) {
     AddCommonHeaders(res);
     AddFileResultHeaders(res, fileResult);
 
-    res->body       = NULL;
+    res->body = NULL;
     res->bodyLength = 0;
+
+    printf("responsehead ok\n");
 
     return res;
 }
 
 // en fresult, me llega solo status code y location, si aplica, porque el body (body, contenttype (html), contentlenght), se genera acá porque es el html message
 HTTPResponse* ResponsePost(const HTTPRequest* req, FileResult* fileResult) {
+    printf("entre a responsepost\n");
+
     if (fileResult == NULL) return ResponseError(500);
+    printf("fr no es null\n");
 
     int statusCode = FileResultGetStatusCode(fileResult);
 
@@ -192,6 +213,7 @@ HTTPResponse* ResponsePost(const HTTPRequest* req, FileResult* fileResult) {
     if (statusCode != 200 && statusCode != 201) {
         return ResponseError(statusCode);
     }
+    printf("code no es diferente a 200 o 201\n");
 
     HTTPResponse* res = InitResponse(statusCode);
     if (res == NULL) return NULL;
@@ -201,6 +223,7 @@ HTTPResponse* ResponsePost(const HTTPRequest* req, FileResult* fileResult) {
     // Location — siempre en POST exitoso
     const char* location = FileResultGetLocation(fileResult);
     if (location != NULL && location[0] != '\0') { // o sea, code es 201
+        printf("hay location -> 201\n");
 
         // construir URL completa con Host del request
         const char* host = GetHeaderValue(&req->headers, "Host"); 
@@ -213,12 +236,18 @@ HTTPResponse* ResponsePost(const HTTPRequest* req, FileResult* fileResult) {
 
             if (written < 0 || written >= MAX_PATH_LEN) {
                 AddHeader(res, "Location", location);
+                printf("agregué location\n");
+
             } else {
+                printf("agregué fulllocation\n");
                 AddHeader(res, "Location", fullLocation);
             }
         } else {
             AddHeader(res, "Location", location);
+            printf("agregué location\n");
+
         }
+
     }
 
     // body HTML
@@ -227,14 +256,20 @@ HTTPResponse* ResponsePost(const HTTPRequest* req, FileResult* fileResult) {
 
     if (statusCode == 201) {
         if (location == NULL || location[0] == '\0' ) {
+            printf("entré a code 201, pero location es null\n");
+
             ResponseFree(res);
             return ResponseError(500);
         }
         // 201 → página de confirmación con link
         body = GenerateCreatedBody(location, &bodyLen);
+            printf("pasé generatevreatedbody\n");
+
     } else {
         // 200 → confirmación simple
         body = GenerateSuccesfulBody(200, "OK", &bodyLen);
+        printf("pasé generatesuccessfulbody -> soy 200\n");
+
     }
 
     if (body == NULL) {
@@ -249,6 +284,8 @@ HTTPResponse* ResponsePost(const HTTPRequest* req, FileResult* fileResult) {
 
     res->body = body;
     res->bodyLength = bodyLen;
+
+    printf("responsepost ok\n");
 
     return res;
 }

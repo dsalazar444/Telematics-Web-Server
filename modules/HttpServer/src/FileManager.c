@@ -42,6 +42,7 @@ static FileResult* InitResult(){
 //getMetadata: status, si existe url -> contenttype, last_modified
 // read: si exite url -> content, contentlen
 FileResult* FileGet(const char* absPath) {
+    printf("llegué a fileget en ws\n");
    
     FileResult* result = InitResult();
     if (result == NULL) return NULL;
@@ -50,21 +51,29 @@ FileResult* FileGet(const char* absPath) {
     struct stat pathStat;
 
     if (!GetFileMetadata(absPath, realPath, &pathStat, result)) {
+        printf("falló en getfilemetada, fileget en ws\n");
+
         return result;  // statusCode ya seteado adentro si error
     }
+    printf("ANTES DE READFILE: %s\n", realPath);
 
     // GET lee el body
     if (!ReadFile(realPath, &pathStat, result)) {
+        printf("falló en readfile, fileget en ws\n");
         result->_statusCode = 500;
         return result;
     }
 
     result->_statusCode = 200;
+    printf("ok fileget\n");
+
     return result;
 }
 
 // si archivo no existe me llena solo su statuscode
 FileResult* FileHead(const char* absPath) {
+    printf("llegué a filehead en ws\n");
+
     FileResult* result = InitResult();
     if (result == NULL) return NULL;
 
@@ -73,12 +82,16 @@ FileResult* FileHead(const char* absPath) {
 
     // HEAD solo necesita metadata — no llama ReadFile
     if(!GetFileMetadata(absPath, realPath, &pathStat, result)){
+        printf("falló en getfilemetada, filehead en ws\n");
+
         return result;  // statusCode ya seteado adentro si error
     }
 
-    result->_statusCode == 200;
+    result->_statusCode = 200;
+    printf("AAAAAA STATUS CODE: %d\n", result->_statusCode);
+    printf("filehead status code: %d\n", result->_statusCode);
     result->_contentLen = pathStat.st_size;
-
+    printf("ok filehead\n");
 
     return result;
 }
@@ -88,16 +101,20 @@ FileResult* FileHead(const char* absPath) {
 // statusCode, si 201 -> location, 
 // atributos que no: content, contentLen, mime, last_mod, si 200 -> location, 
 FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, const char* contentType) {
+    printf("llegué a filepost en ws\n");
     FileResult* result = InitResult();
     if (result == NULL) return NULL;
 
     // 1. construir ruta real (añadimos .www)
     char realPath[MAX_PATH_LEN];
     if (!BuildRealPath(absPath, realPath)) {
+        printf("falle buildpath en filepost\n");
+
         result->_statusCode = 414; //uri too long
         return result;
-     }
-
+    }
+    
+    printf("abspath que llega %s, realpath queda: %s\n", absPath, realPath);
     int isNew = 0;
 
     // 2. stat() para ver si es directorio
@@ -105,9 +122,12 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
     
     // CASO 1: Ruta existe y es directorio → generar nombre aleatorio -> solo s_isdir si stat retorna 0 -> no riesgo de comportamiento innesaperado
     if (stat(realPath, &pathStat) == 0 && S_ISDIR(pathStat.st_mode)) {
+        printf("ruta existe y soy un dir\n");
+
         char fileName[MAX_PATH_LEN];
         pthread_mutex_lock(&_writeMutex);
         if(!GenerateFileName(contentType, fileName)){
+            printf("falle generatename en filepost\n");
             result->_statusCode = 500; // error de server porque fue por limitaciones nuestras que no pudimos procesar la peticion -> nueva uri muy larga
             return result;
         } //mutex porque dos workers pueden tener mismo timestamp, poco probable, pero ajá
@@ -117,6 +137,8 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
         snprintf(newFilePath, MAX_PATH_LEN, "%s/%s", realPath, fileName);
         
         if (!WriteFile(newFilePath, body, bodyLen, &isNew)) {
+            printf("falle writefile en filepost\n");
+
             pthread_mutex_unlock(&_writeMutex);
             result->_statusCode = 500;
             return result;
@@ -130,15 +152,19 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
     }
     // CASO 2: Archivo existente o nuevo (ruta general puede no existir, pero carpeta padre debe existir)
     else {
+        printf("no soy dir en filepost\n");
         // Verificar que la carpeta padre existe
         char parentDirPath[MAX_PATH_LEN];
         if (!GetParentDir(realPath, parentDirPath) || !CheckDirExists(parentDirPath)) {
+            printf("falle getparentdir || checkdirexist en filepost\n");
+            
             result->_statusCode = 404;
             return result;
         }
         
         // WriteFile crea el archivo si no existe, o append si existe
         if (!WriteFile(realPath, body, bodyLen, &isNew)) {
+            printf("falle writefile en filepost, soy archivo\n");
             result->_statusCode = 500;
             return result;
         }
@@ -150,6 +176,8 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
 
     // 4. llenar resultado
     result->_statusCode = isNew ? 201 : 200;
+    printf("oj filepost\n");
+
     return result;
 }
 
