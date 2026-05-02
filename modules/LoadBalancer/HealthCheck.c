@@ -84,7 +84,7 @@ bool HealthCheckBackend(IDBackendNode id)
     if (SendHTTPRequest(socket, &request) == 0)
     {
         HTTPResponse response = ReadHTTPResponse(socket);
-        healthy = (response.statusCode == 200);
+        healthy = (response.statusCode);
         free(response.body);
     }
 
