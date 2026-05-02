@@ -6,7 +6,7 @@
 
 void *worker(void *arg)
 {
-    WorkerArgs *workerArgs = (WorkerArgs*)arg;
+    WorkerArgs *workerArgs = (WorkerArgs *)arg;
 
     IClientSocket *client = workerArgs->client;
     LoadBalancer *lb = workerArgs->lb;
@@ -16,14 +16,15 @@ void *worker(void *arg)
     char requestBuffer[4096];
     int requestLen = 0;
 
-    
     while (1)
     {
         memset(buffer, 0, sizeof(buffer));
         int bytes = RecvFromClient(client, buffer, sizeof(buffer));
-        if (bytes <= 0) break;
+        if (bytes <= 0)
+            break;
 
-        if (requestLen + bytes >= sizeof(requestBuffer)) {
+        if (requestLen + bytes >= sizeof(requestBuffer))
+        {
             printf("Error: petición demasiado grande\n");
             break;
         }
@@ -59,11 +60,14 @@ void *worker(void *arg)
         {
             // Construir respuesta usando ResponseError (centraliza headers y body)
             HTTPResponse *response = ResponseError((int)statusCode);
-            if (response != NULL) {
+            if (response != NULL)
+            {
                 // enviar usando helper reutilizable
                 SendHTTPResponse(client, response);
                 ResponseFree(response);
-            } else {
+            }
+            else
+            {
                 const char *fallback = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 21\r\nConnection: close\r\n\r\nInternal Server Error";
                 SendToClient(client, fallback, strlen(fallback));
             }
@@ -78,23 +82,46 @@ void *worker(void *arg)
 
         // Allocate proxy message on heap so it can be handed off to other components
         ProxyMessage *proxyMessage = malloc(sizeof(*proxyMessage));
-        if (proxyMessage == NULL) {
+        if (proxyMessage == NULL)
+        {
             // Allocation failed: fallback to immediate forwarding and free request
             ConnectToBackendAndForward(workerArgs, NULL);
             free(request->body);
             free(request);
-        } else {
+        }
+        else
+        {
             memset(proxyMessage, 0, sizeof(*proxyMessage));
             proxyMessage->request = request; // point to parsed request (no copy)
             proxyMessage->shouldCache = false;
             proxyMessage->shouldReplicate = false;
 
-            if (cacheManager != NULL && cacheKeyFromRequest(request, proxyMessage->cacheKey, sizeof(proxyMessage->cacheKey))) {
+            if (cacheManager && cacheKeyFromRequest(request, proxyMessage->cacheKey, sizeof(proxyMessage->cacheKey)))
+            {
                 proxyMessage->shouldCache = true;
             }
 
-            // Transfer ownership to ConnectToBackendAndForward (it must free message/request when done)
-            ConnectToBackendAndForward(workerArgs, proxyMessage);
+            HTTPResponse cachedResponse = {0};
+            if (CacheLookUp(cacheManager, proxyMessage->cacheKey, &cachedResponse))
+            {
+                SendHTTPResponse(client, &cachedResponse);
+                free(cachedResponse.body);
+                free(proxyMessage);
+                free(request->body);
+                free(request);
+                requestLen = 0;
+                memset(requestBuffer, 0, sizeof(requestBuffer));
+                continue;
+            }
+            else
+            {
+                // Transfer ownership to ConnectToBackendAndForward (it must free message/request when done)
+                ConnectToBackendAndForward(workerArgs, proxyMessage);
+                CacheStoreAsync(cacheManager, proxyMessage);
+                SendHTTPRequest(client, request);
+            }
+
+
         }
 
         char *response = "HTTP/1.1 200 OK\r\nContent-Length: 12\r\n\r\nHola cliente\r\n";
@@ -110,7 +137,8 @@ void *worker(void *arg)
     return NULL;
 }
 
-void ConnectToBackendAndForward(WorkerArgs *workerArgs, ProxyMessage *message){
+void ConnectToBackendAndForward(WorkerArgs *workerArgs, ProxyMessage *message)
+{
     // Aquí se implementaría la lógica para conectar al backend seleccionado por el LoadBalancer
     // y reenviar la petición. Esto incluiría:
     // 1. Seleccionar un backend usando LoadBalancerSelectBackend(workerArgs->lb)
@@ -130,7 +158,8 @@ void ConnectToBackendAndForward(WorkerArgs *workerArgs, ProxyMessage *message){
 
     message->response = response; // Marcar para replicación si se desea
 
-    if (response.statusCode == 200 && message->shouldReplicate) {
+    if (response.statusCode == 200 && message->shouldReplicate)
+    {
         // Lanzar hilo de replicación (ej: pthread_create con replicatorWorker)
         // Pasar message y backend.id para que el replicator sepa qué replicar y a dónde
     }
@@ -140,17 +169,22 @@ void ConnectToBackendAndForward(WorkerArgs *workerArgs, ProxyMessage *message){
     // If the message is enqueued to another component/thread, that component must free them.
 }
 
-void PrintHttpRequest(const HTTPRequest *request) {
+void PrintHttpRequest(const HTTPRequest *request)
+{
     printf("Method: %d\n", request->method);
     printf("Path: %s\n", request->path);
     printf("Version: %s\n", request->version);
     printf("Headers:\n");
-    for (size_t i = 0; i < request->headers.count; i++) {
+    for (size_t i = 0; i < request->headers.count; i++)
+    {
         printf("  %s: %s\n", request->headers.headers[i].key, request->headers.headers[i].value);
     }
-    if (request->body) {
-        printf("Body length: %zu\n", request->bodyLength); 
-    } else {
+    if (request->body)
+    {
+        printf("Body length: %zu\n", request->bodyLength);
+    }
+    else
+    {
         printf("No Body\n");
     }
 }

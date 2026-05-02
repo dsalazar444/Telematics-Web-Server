@@ -7,7 +7,7 @@
 typedef struct {
     HTTPResponse response;
     const HTTPRequest *request;
-    char         cacheKey[512];
+    char         cacheKey[33];
     bool         shouldCache;
     bool         shouldReplicate;
 } ProxyMessage;

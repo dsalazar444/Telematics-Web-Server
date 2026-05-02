@@ -1,9 +1,9 @@
-#ifndef CACHE_WORKER_H
-#define CACHE_WORKER_H
+#ifndef CACHE_CLEAN_WORKER_H
+#define CACHE_CLEAN_WORKER_H
 
 #include "CacheManager.h"
 #include "CacheUtils.h"
 
 void *CacheCleanupWorker(void *arg);
 
-#endif // CACHE_WORKER_H
+#endif // CACHE_CLEAN_WORKER_H

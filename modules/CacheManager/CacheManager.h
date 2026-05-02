@@ -16,6 +16,7 @@
 
 #include "../../Includes/http.h"
 #include "../HttpParser/HttpResponseParser.h"
+#include "../../Includes/messages.h"
 
 // Note: CacheWorker.h is included in CacheManager.c to avoid circular includes
 
@@ -51,12 +52,20 @@ typedef struct
     pthread_mutex_t lock;
 } CacheManager;
 
+typedef struct {
+    CacheManager *cacheManager;
+    char cacheKey[33];
+    char rawKey[512];
+    HTTPResponse response;
+} CacheStoreArgs;
+
 
 bool cacheKeyFromRequest(const HTTPRequest *request, char *outKey, size_t outKeyLen);
 CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl);
-bool cacheStore(CacheManager *cache, const char *cacheKey, const char *rawKey, const HTTPResponse *response);
+bool CacheStore(CacheManager *cache, const char *cacheKey, const char *rawKey, const HTTPResponse *response);
 static void cacheLoadFromDisk(CacheManager *cache);
 bool CacheLookUp(CacheManager *cache, const char *cacheKey, HTTPResponse *response);
+void CacheStoreAsync(CacheManager *cacheManager, ProxyMessage *proxyMessage);
 void FreeCacheManager(CacheManager *cacheManager);
 
 

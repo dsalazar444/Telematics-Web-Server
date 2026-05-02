@@ -1,5 +1,7 @@
 #include "CacheManager.h"
-#include "CacheWorker.h"
+#include "CacheCleanWorker.h"
+#include "CacheStoreWorker.h"
+
 #define CACHE_MAX_ENTRIES 1000
 
 #include "CacheUtils.h"
@@ -47,9 +49,20 @@ CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
     }
 
     char absoluteDir[512];
-    realpath(cacheDir, absoluteDir);
-    strncpy(cacheManager->cacheDir, absoluteDir, sizeof(cacheManager->cacheDir) - 1);
-    cacheManager->cacheDir[sizeof(cacheManager->cacheDir) - 1] = '\0';
+    if (realpath(cacheDir, absoluteDir) != NULL)
+    {
+        char *resolvedDir = strdup(absoluteDir);
+        if (resolvedDir == NULL)
+        {
+            free(cacheManager->cacheDir);
+            free(cacheManager->table);
+            free(cacheManager);
+            return NULL;
+        }
+
+        free(cacheManager->cacheDir);
+        cacheManager->cacheDir = resolvedDir;
+    }
 
     cacheLoadFromDisk(cacheManager);
 
@@ -69,13 +82,17 @@ CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
         CacheDestroy(cacheManager);
         return NULL;
     }
-    pthread_detach(cleanUpThread); // Corre independient
+    pthread_detach(cleanUpThread); // Corre independientemente
 
     return cacheManager;
 }
 
 bool cacheKeyFromRequest(const HTTPRequest *request, char *outKey, size_t outKeyLen)
 {
+    // MD5 hash siempre produce 32 caracteres + null terminator
+    if (!request || !outKey || outKeyLen < 33)
+        return false;
+
     // Verificamos que el metodo sea cacheable (GET o HEAD)
     if (request->method != GET && request->method != HEAD)
     {
@@ -162,7 +179,7 @@ static bool CacheWriteBody(FILE *file, const HTTPResponse *response)
     return true;
 }
 
-bool cacheStore(CacheManager *cache, const char *cacheKey, const char *rawKey, const HTTPResponse *response)
+bool CacheStore(CacheManager *cache, const char *cacheKey, const char *rawKey, const HTTPResponse *response)
 {
     if (!cache || !cacheKey || !response)
         return false;
@@ -316,6 +333,29 @@ bool CacheLookUp(CacheManager *cache, const char *cacheKey, HTTPResponse *respon
 
     pthread_mutex_unlock(&cache->lock);
     return true;
+}
+
+void CacheStoreAsync(CacheManager *cacheManager, ProxyMessage *proxyMessage) {
+    char rawKey[512];
+    snprintf(rawKey, sizeof(rawKey), "%s|%s|%s",
+             MethodToString(proxyMessage->request->method),
+             findHeader(&proxyMessage->request->headers, "Host"),
+             proxyMessage->request->path);
+
+    CacheStoreArgs *storeArgs = malloc(sizeof(CacheStoreArgs));
+    if (storeArgs == NULL) return;
+
+    storeArgs->cacheManager = cacheManager;
+    storeArgs->response     = proxyMessage->response;
+    strncpy(storeArgs->cacheKey, proxyMessage->cacheKey, sizeof(storeArgs->cacheKey));
+    strncpy(storeArgs->rawKey,   rawKey,                 sizeof(storeArgs->rawKey));
+
+    pthread_t storeThread;
+    if (pthread_create(&storeThread, NULL, CacheStoreWorker, storeArgs) != 0) {
+        free(storeArgs);
+        return;
+    }
+    pthread_detach(storeThread);
 }
 
 void FreeCacheManager(CacheManager *cacheManager)
