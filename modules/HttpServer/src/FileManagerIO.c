@@ -6,7 +6,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <stdlib.h>
-
+#include <unistd.h>
 // Heredados desde FileManagerIO.h (sys/stat.h, stddef.h)
 
 // FUNCIÓN: funciones que abren, leen y escriben archivos:
