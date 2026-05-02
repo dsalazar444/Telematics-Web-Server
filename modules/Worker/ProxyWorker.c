@@ -1,9 +1,12 @@
-#include "Worker.h"
+#include "ProxyWorker.h"
 #include "../HttpParser/HttpParser.h"
 #include "../HttpServer/src/Response.h"
-#include "../../Includes/HttpUtils.h"
 #include "../HttpServer/src/ResponseSender.h"
 #include "../Replicator/Replicator.h"
+#include "../../modules/Logs/Log.h"
+#include "../../Includes/HttpUtils.h"
+
+
 
 void *worker(void *arg)
 {
@@ -202,25 +205,5 @@ void ConnectToBackendAndForward(WorkerArgs *workerArgs, ProxyMessage *message)
 
     if (message->shouldReplicate) {
         ReplicatorReplicate(message->request, lb, &backend);
-    }
-}
-
-void PrintHttpRequest(const HTTPRequest *request)
-{
-    printf("Method: %d\n", request->method);
-    printf("Path: %s\n", request->path);
-    printf("Version: %s\n", request->version);
-    printf("Headers:\n");
-    for (size_t i = 0; i < request->headers.count; i++)
-    {
-        printf("  %s: %s\n", request->headers.headers[i].key, request->headers.headers[i].value);
-    }
-    if (request->body)
-    {
-        printf("Body length: %zu\n", request->bodyLength);
-    }
-    else
-    {
-        printf("No Body\n");
     }
 }

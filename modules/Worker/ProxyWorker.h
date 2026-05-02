@@ -1,19 +1,19 @@
-#ifndef WORKER_H
-#define WORKER_H
+#ifndef PROXY_WORKER_H
+#define PROXY_WORKER_H
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include "../../Includes/ISocket.h"
 #include "../../modules/Socket/Socket.h"
-#include "../../Includes/http.h"
 #include "../../modules/LoadBalancer/loadBalancer.h"
 #include "../../modules/CacheManager/CacheManager.h"
 #include "../HttpParser/HttpParser.h"
 #include "../HttpServer/src/Response.h"
 #include "../HttpServer/src/ResponseSender.h"
 #include "../../Includes/messages.h"
+#include "../../Includes/http.h"
+#include "../../Includes/ISocket.h"
 
 typedef struct {
     IClientSocket *client;
@@ -26,4 +26,4 @@ void ConnectToBackendAndForward(WorkerArgs *w, ProxyMessage *message);
 void PrintHttpRequest(const HTTPRequest *request);
 //int GetRequestSizes(const char *requestBuffer, int *headerSize, int *contentLength);
 
-#endif
+#endif // PROXY_WORKER_H

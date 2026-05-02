@@ -17,16 +17,6 @@
 #include "../../Includes/http.h"
 #include "../HttpParser/HttpResponseParser.h"
 #include "../../Includes/messages.h"
-
-// Note: CacheWorker.h is included in CacheManager.c to avoid circular includes
-
-// TODO: cache_lookup(key)Busca en disco si existe entrada válida
-// TODO: cache_store(key, response)Guarda body + meta en disco
-// TODO: cache_invalidate(key) Elimina la entrada de disco
-// TODO: cache_is_valid(meta)Verifica si el TTL no ha expirado
-// TODO: cache_key_from_request(req)Genera la clave a partir del HTTP request
-// TODO: cache_init(config)Inicializa la caché con la configuración dada (TTL, directorio, etc.)
-// TODO: cache_load
 typedef struct {
     int statusCode;
     char contentType[128];
