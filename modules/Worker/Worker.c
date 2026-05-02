@@ -45,8 +45,9 @@ void *worker(void *arg)
             break;
         }
 
-        if (requestLen < headerSize + contentLength) continue;
-
+        int expectedSize = headerSize + contentLength;
+        if (requestLen < expectedSize) continue;
+        
         // 3. Parsear el request
         unsigned short statusCode = 0;
         HTTPRequest *request = ParseHTTPRequest(requestBuffer, headerSize, contentLength, &statusCode);
@@ -74,7 +75,9 @@ void *worker(void *arg)
         ProxyMessage *proxyMessage = malloc(sizeof(*proxyMessage));
         if (proxyMessage == NULL)
         {
-            ConnectToBackendAndForward(workerArgs, NULL);
+            fprintf(stderr, "Error al allocar ProxyMessage\n");
+            const char *fallback = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 21\r\nConnection: close\r\n\r\nInternal Server Error";
+            SendToClient(client, fallback, strlen(fallback));
             free(request->body);
             free(request);
             requestLen = 0;
@@ -85,7 +88,7 @@ void *worker(void *arg)
         memset(proxyMessage, 0, sizeof(*proxyMessage));
         proxyMessage->request         = request;
         proxyMessage->shouldCache     = false;
-        proxyMessage->shouldReplicate = false;
+        proxyMessage->shouldReplicate = (request->method == POST);
 
         // 5. Verificar si es cacheable y buscar en caché
         if (cacheManager != NULL &&
@@ -142,6 +145,11 @@ void *worker(void *arg)
 
 void ConnectToBackendAndForward(WorkerArgs *workerArgs, ProxyMessage *message)
 {
+    if (workerArgs == NULL || message == NULL || message->request == NULL)
+    {
+        return;
+    }
+
     // Aquí se implementaría la lógica para conectar al backend seleccionado por el LoadBalancer
     // y reenviar la petición. Esto incluiría:
     // 1. Seleccionar un backend usando LoadBalancerSelectBackend(workerArgs->lb)
@@ -154,11 +162,30 @@ void ConnectToBackendAndForward(WorkerArgs *workerArgs, ProxyMessage *message)
     LoadBalancer *lb = workerArgs->lb;
     BackendNode backend = LoadBalancerSelectBackend(lb);
     IClientSocket *backendSocket = CreateClientSocket(backend.id.ip, backend.id.port, 5000);
+    if (backendSocket == NULL)
+    {
+        message->response.statusCode = 502;
+        snprintf(message->response.statusMessage, sizeof(message->response.statusMessage), "%s", "Bad Gateway");
+        message->response.headers.count = 0;
+        message->response.body = NULL;
+        message->response.bodyLength = 0;
+        message->shouldCache = false;
+        message->shouldReplicate = false;
+        return;
+    }
+
     IncrementActiveConnections(lb, &backend);
     if(SendHTTPRequest(backendSocket, message->request) < 0) {
         fprintf(stderr, "Error al enviar la petición al backend\n");
         DecrementActiveConnections(lb, &backend);
         CloseClientSocket(backendSocket);
+        message->response.statusCode = 502;
+        snprintf(message->response.statusMessage, sizeof(message->response.statusMessage), "%s", "Bad Gateway");
+        message->response.headers.count = 0;
+        message->response.body = NULL;
+        message->response.bodyLength = 0;
+        message->shouldCache = false;
+        message->shouldReplicate = false;
         return;
     }
     HTTPResponse response = ReadHTTPResponse(backendSocket);

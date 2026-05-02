@@ -34,9 +34,9 @@ static HTTPRequest *CopyHTTPRequest(const HTTPRequest *src)
 void ReplicatorReplicate(const HTTPRequest *message, LoadBalancer *lb, BackendNode *originNode) {
     if (message == NULL || lb == NULL || originNode == NULL) return;
 
-    BackendNode *nodesList = lb->backend_nodes; // direct pointer
+    BackendNode *nodesList = lb->BackendNodes; // direct pointer
 
-    for (uint16_t i = 0; i < lb->backend_count; i++) {
+    for (uint16_t i = 0; i < lb->BackendCount; i++) {
         BackendNode *node = &nodesList[i];
         if (node->index == originNode->index) continue;
         if (!node->healthy) continue;

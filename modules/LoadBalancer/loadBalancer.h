@@ -13,16 +13,16 @@ typedef struct {
 
 typedef struct BackendNode {
     IDBackendNode id;
-    uint16_t active_connections;
+    uint16_t ActiveConnections;
     bool healthy;
     uint16_t index; // Índice en el array del LoadBalancer
-    uint8_t failure_count; // Para health checks
+    uint8_t FailureCount; // Para health checks
 } BackendNode;
 
 typedef struct LoadBalancer {
-    BackendNode *backend_nodes;
-    uint16_t backend_count;
-    uint16_t rr_index;
+    BackendNode *BackendNodes;
+    uint16_t BackendCount;
+    uint16_t rrIndex;
     pthread_mutex_t lock;
 } LoadBalancer;
 
@@ -34,4 +34,4 @@ void LoadBalancerPrint(LoadBalancer *lb);
 void IncrementActiveConnections(LoadBalancer *lb, BackendNode *node);
 void DecrementActiveConnections(LoadBalancer *lb, BackendNode *node);
 
-#endif
+#endif // LOAD_BALANCER_H

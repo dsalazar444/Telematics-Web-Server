@@ -7,13 +7,14 @@ LoadBalancer* LoadBalancerCreate(char *nodes[], uint8_t count) {
     BackendNode *backend_nodes = malloc(sizeof(BackendNode) * count);
     for (uint8_t i = 0; i < count; i++) {
         backend_nodes[i].id = LoadBalancerParserNodeID(nodes[i]);
-        backend_nodes[i].active_connections = 0;
+        backend_nodes[i].ActiveConnections = 0;
         backend_nodes[i].healthy = HealthCheckBackend(backend_nodes[i].id);
         backend_nodes[i].index = i; // Guardamos el índice para referencia futura
+        backend_nodes[i].FailureCount = 0;
     }
-    lb->backend_nodes = backend_nodes;
-    lb->backend_count = count;
-    lb->rr_index = 0;
+    lb->BackendNodes = backend_nodes;
+    lb->BackendCount = count;
+    lb->rrIndex = 0;
     pthread_mutex_init(&lb->lock, NULL);
 
     return lb;
@@ -45,31 +46,30 @@ IDBackendNode LoadBalancerParserNodeID(const char *node_str) {
 }
 
 BackendNode LoadBalancerSelectBackend(LoadBalancer *lb){
-    if (lb->backend_count == 0) {
+    if (lb->BackendCount == 0) {
         BackendNode empty_node = {0};
         return empty_node;
     }
-
     pthread_mutex_lock(&lb->lock);
 
-    for (uint16_t i = 0; i < lb->backend_count; i++) {
-        uint16_t index = (lb->rr_index + i) % lb->backend_count;
-        if (lb->backend_nodes[index].healthy) {
-            lb->rr_index = (index + 1) % lb->backend_count;
+    for (uint16_t i = 0; i < lb->BackendCount; i++) {
+        uint16_t index = (lb->rrIndex + i) % lb->BackendCount;
+        if (lb->BackendNodes[index].healthy) {
+            lb->rrIndex = (index + 1) % lb->BackendCount;
+            BackendNode chosen = lb->BackendNodes[index];
             pthread_mutex_unlock(&lb->lock);
-            return lb->backend_nodes[index];
+            return chosen;
         }
     }
 
     pthread_mutex_unlock(&lb->lock);
-
     BackendNode empty_node = {0};
     return empty_node; // No healthy backends
 }
 
 void FreeLoadBalancer(LoadBalancer *lb) {
     if (lb) {
-        free(lb->backend_nodes);
+        free(lb->BackendNodes);
         pthread_mutex_destroy(&lb->lock);
         free(lb);
     }
@@ -82,33 +82,33 @@ void LoadBalancerPrint(LoadBalancer *lb) {
     }
     
     printf("\n=== LoadBalancer Status ===\n");
-    printf("Total backends: %u\n", lb->backend_count);
-    printf("Current RR index: %u\n", lb->rr_index);
+    printf("Total backends: %u\n", lb->BackendCount);
+    printf("Current RR index: %u\n", lb->rrIndex);
     printf("\nBackends:\n");
-    for (uint16_t i = 0; i < lb->backend_count; i++) {
-        BackendNode *bn = &lb->backend_nodes[i];
+    for (uint16_t i = 0; i < lb->BackendCount; i++) {
+        BackendNode *bn = &lb->BackendNodes[i];
         printf("  [%u] %u.%u.%u.%u:%u | healthy=%s | active_conn=%u\n",
             bn->index,
             bn->id.ip[0], bn->id.ip[1], bn->id.ip[2], bn->id.ip[3],
             bn->id.port,
             bn->healthy ? "YES" : "NO",
-            bn->active_connections);
+            bn->ActiveConnections);
     }
     printf("============================\n\n");
 }
 
 void IncrementActiveConnections(LoadBalancer *lb, BackendNode *node){
-    if (!lb || !node || node->index >= lb->backend_count) return;
+    if (!lb || !node || node->index >= lb->BackendCount) return;
     pthread_mutex_lock(&lb->lock);
-    lb->backend_nodes[node->index].active_connections++;
+    lb->BackendNodes[node->index].ActiveConnections++;
     pthread_mutex_unlock(&lb->lock);
 }
 
 void DecrementActiveConnections(LoadBalancer *lb, BackendNode *node){
-    if (!lb || !node || node->index >= lb->backend_count) return;
+    if (!lb || !node || node->index >= lb->BackendCount) return;
     pthread_mutex_lock(&lb->lock);
-    if (lb->backend_nodes[node->index].active_connections > 0) {
-        lb->backend_nodes[node->index].active_connections--;
+    if (lb->BackendNodes[node->index].ActiveConnections > 0) {
+        lb->BackendNodes[node->index].ActiveConnections--;
     }
     pthread_mutex_unlock(&lb->lock);
 }

@@ -105,11 +105,11 @@ void *replicatorWorker(void *arg)
 	if (!success)
 	{
 		// Mark node as unhealthy in load balancer
-		if (lb != NULL && target.index < lb->backend_count)
+		if (lb != NULL && target.index < lb->BackendCount)
 		{
 			pthread_mutex_lock(&lb->lock);
-			lb->backend_nodes[target.index].healthy = 0;
-			lb->backend_nodes[target.index].failure_count++;
+			lb->BackendNodes[target.index].healthy = 0;
+			lb->BackendNodes[target.index].FailureCount++;
 			pthread_mutex_unlock(&lb->lock);
 		}
 	}
