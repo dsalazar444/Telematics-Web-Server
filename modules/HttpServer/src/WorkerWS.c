@@ -1,9 +1,19 @@
-#include "Worker.h"
-//#include <../../Socket/Socket.h> // se obtiene de responsesender
-#include "ResponseSender.h"
-#include "../HttpParser/HttpParser.h"
-#include "FileManagerTypes.h"
+#include "WorkerWS.h"
 #include "../../Worker/Worker.h"
+#include "ResponseSender.h"
+#include "../../HttpParser/HttpParser.h"
+#include "FileManagerTypes.h"
+// Heredados desde Worker.h (ISocket.h)
+// Heredados desde HttpParser.h (http.h)
+// Heredados desde ResponseSender.h (Response.h, Socket.h)
+
+// Forward declarations
+static HTTPRequest* RecvRequest(IClientSocket* client);
+static HTTPResponse* ProcessRequest(const HTTPRequest* req);
+static HTTPResponse* HandleGet(const char* path);
+static HTTPResponse* HandleHead(const char* path);
+static HTTPResponse* HandlePost(const HTTPRequest* req, const char* path);
+void PrintHttpResponse(const HTTPResponse *res);
 
 void* WorkerRun(void* arg) {
 
@@ -27,7 +37,7 @@ void* WorkerRun(void* arg) {
     int sent = SendHTTPResponse(client, res);
     if (sent < 0) {
         // Hubo un error al enviar la respuesta
-        log_error("Fallo al enviar respuesta al cliente");
+        perror("Fallo al enviar respuesta al cliente");
         // Puedes cerrar el socket o intentar reenviar, etc.
     }
 
@@ -101,9 +111,9 @@ static HTTPResponse* ProcessRequest(const HTTPRequest* req) {
 
     // obtenemos el metodo del req
     switch (req->method) {
-        case GET:     return HandleGet(&path);
-        case HEAD:    return HandleHead(&path);
-        case POST:    return HandlePost(req, &path);
+        case GET:     return HandleGet(path);
+        case HEAD:    return HandleHead(path);
+        case POST:    return HandlePost(req, path);
         default:      return ResponseError(501);
     }
 }

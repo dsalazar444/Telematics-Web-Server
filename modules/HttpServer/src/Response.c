@@ -144,7 +144,7 @@ HTTPResponse* ResponseGet(FileResult* fileResult) {
         ResponseFree(res);
         return ResponseError(500);
     }
-    
+
     unsigned char* body = malloc(bodyLen);
     if (body == NULL) {
         ResponseFree(res);
@@ -251,14 +251,4 @@ HTTPResponse* ResponsePost(const HTTPRequest* req, FileResult* fileResult) {
     res->bodyLength = bodyLen;
 
     return res;
-}
-
-void ResponseFree(HTTPResponse* response) {
-    if (response) {
-        if (response->body) {
-            free(response->body);
-            response->body = NULL;
-        }
-        free(response);
-    }
 }

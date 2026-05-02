@@ -122,7 +122,7 @@ void PrintHttpRequest(const HTTPRequest *request) {
 // retorna: 0 -> no hay final de headers -> no hay secuencia \r\n\r\
 // -1 -> si hay errores de formato (headers mal formateados, etc.)
 // 1 -> ok
-static int GetRequestSizes(const char *requestBuffer, int *headerSize, int *contentLength)
+int GetRequestSizes(const char *requestBuffer, int *headerSize, int *contentLength)
 {
     const char *headersEnd = strstr(requestBuffer, "\r\n\r\n");
     if (headersEnd == NULL)

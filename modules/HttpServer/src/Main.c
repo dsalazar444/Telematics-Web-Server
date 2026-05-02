@@ -1,14 +1,13 @@
-#include "../../../Includes/ISocket.h"
+#include "WorkerWS.h"
 #include "../../Socket/Socket.h"
 #include <stdio.h>
 #include <pthread.h>
-#include "Worker.h"
 #include <stdlib.h>
+// Heredados desde Worker.h (ISocket.h)
 
 const int PORT = 8082;
 
 int main() {
-    //FileManagerInit("./www"); //TODO: revisar si esto basta para usar HandleGet en worker, etc
     ISocketListener listener;
     listener.fd = CreateDualStackSocket();
     if (listener.fd < 0)

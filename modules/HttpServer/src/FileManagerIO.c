@@ -2,10 +2,12 @@
 #include "FileManagerTypes.h"
 #include "FileManagerUtils.h"
 #include "FileManager.h"
-#include <stdio.h>    // para fopen, fread, fwrite, fclose
-#include <sys/stat.h> // para stat(), S_ISDIR(), S_ISREG()
-#include <string.h>   // para strlen, strrchr, strncpy, snprintf
-#include <stdlib.h>   // para malloc, free
+#include <stdio.h>
+#include <sys/stat.h>
+#include <string.h>
+#include <stdlib.h>
+// Heredados desde FileManagerIO.h (sys/stat.h, stddef.h)
+
 // FUNCIÓN: funciones que abren, leen y escriben archivos:
 
 // Verifica si url es una carpeta, si sí, busca si tiene index.html, y actualiza realPath si corresponde

@@ -2,11 +2,12 @@
 #include "FileManagerTypes.h"
 #include "FileManagerUtils.h"
 #include "FileManagerIO.h"
-#include <stdlib.h> // para malloc()
-#include <string.h> // para strncpy()
-#include <sys/stat.h> // para stat()..
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
 #include <pthread.h>
 #include <stdio.h>
+// Heredados desde FileManagerIO.h (sys/stat.h, pthread.h)
 
 static pthread_mutex_t _writeMutex = PTHREAD_MUTEX_INITIALIZER;
 // FUNCIÓN: solo orquesta, no hace trabajo sucio
