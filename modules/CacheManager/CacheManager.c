@@ -252,6 +252,18 @@ void cacheInvalidate(CacheManager *cache, const char *cacheKey)
     pthread_mutex_unlock(&cache->lock);
 }
 
+void CacheInvalidateByRequest(CacheManager *cache, const HTTPRequest *request) {
+    char rawKey[512];
+    snprintf(rawKey, sizeof(rawKey), "GET|%s|%s",
+             findHeader(&request->headers, "Host"),
+             request->path);
+
+    char cacheKey[33];
+    MD5Hash(rawKey, cacheKey);
+
+    cacheInvalidate(cache, cacheKey);
+}
+
 // Falta destruir el mutex correctamente
 // Actualmente llama pthread_mutex_destroy pero NO hace lock/unlock
 // Debería ser así:

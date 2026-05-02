@@ -65,6 +65,7 @@ CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl);
 bool CacheStore(CacheManager *cache, const char *cacheKey, const char *rawKey, const HTTPResponse *response);
 bool CacheLookUp(CacheManager *cache, const char *cacheKey, HTTPResponse *response);
 void CacheStoreAsync(CacheManager *cacheManager, ProxyMessage *proxyMessage);
+void CacheInvalidateByRequest(CacheManager *cache, const HTTPRequest *request);
 void FreeCacheManager(CacheManager *cacheManager);
 
 
