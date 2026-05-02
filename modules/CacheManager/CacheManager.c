@@ -1,4 +1,5 @@
 #include "CacheManager.h"
+#include "CacheWorker.h"
 #define CACHE_MAX_ENTRIES 1000
 
 #include "CacheUtils.h"
@@ -6,6 +7,7 @@
 bool CacheAddFromDisk(CacheManager *cache, const char *cacheKey, time_t timestamp);
 bool ExpireFileCache(CacheManager *cache, CacheEntry *entry, const char *cacheKey);
 static CacheEntry *CacheFindEntry(CacheManager *cache, const char *key);
+void CacheDestroy(CacheManager *cache);
 
 CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
 {
@@ -49,6 +51,8 @@ CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
     strncpy(cacheManager->cacheDir, absoluteDir, sizeof(cacheManager->cacheDir) - 1);
     cacheManager->cacheDir[sizeof(cacheManager->cacheDir) - 1] = '\0';
 
+    cacheLoadFromDisk(cacheManager);
+
     // 5. Inicializar mutex
     if (pthread_mutex_init(&cacheManager->lock, NULL) != 0)
     {
@@ -57,6 +61,15 @@ CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
         free(cacheManager);
         return NULL;
     }
+
+    pthread_t cleanUpThread;
+    if (pthread_create(&cleanUpThread, NULL, CacheCleanupWorker, cacheManager) != 0)
+    {
+        fprintf(stderr, "cache_init: no se pudo crear hilo de limpieza: %s\n", strerror(errno));
+        CacheDestroy(cacheManager);
+        return NULL;
+    }
+    pthread_detach(cleanUpThread); // Corre independient
 
     return cacheManager;
 }
@@ -95,7 +108,7 @@ bool cacheKeyFromRequest(const HTTPRequest *request, char *outKey, size_t outKey
     return true;
 }
 
-static bool CacheWriteMeta(FILE *file,CacheManager *cache,const char *rawKey,const HTTPResponse *response)
+static bool CacheWriteMeta(FILE *file, CacheManager *cache, const char *rawKey, const HTTPResponse *response)
 {
     const char *contentType = findHeader(&response->headers, "Content-Type");
     if (!contentType)
@@ -382,4 +395,23 @@ bool CacheAddFromDisk(CacheManager *cache, const char *cacheKey, time_t timestam
     cache->entryCount++;
 
     return true;
+}
+
+void CacheDestroy(CacheManager *cache)
+{
+    if (cache == NULL)
+        return;
+
+    pthread_mutex_lock(&cache->lock);
+
+    CacheEntry *entry, *tmp;
+    HASH_ITER(hh, cache->table, entry, tmp)
+    {
+        HASH_DEL(cache->table, entry);
+        free(entry);
+    }
+
+    pthread_mutex_unlock(&cache->lock);
+    pthread_mutex_destroy(&cache->lock);
+    free(cache);
 }

@@ -17,6 +17,8 @@
 #include "../../Includes/http.h"
 #include "../HttpParser/HttpResponseParser.h"
 
+// Note: CacheWorker.h is included in CacheManager.c to avoid circular includes
+
 // TODO: cache_lookup(key)Busca en disco si existe entrada válida
 // TODO: cache_store(key, response)Guarda body + meta en disco
 // TODO: cache_invalidate(key) Elimina la entrada de disco
