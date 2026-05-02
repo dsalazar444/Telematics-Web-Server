@@ -1,5 +1,5 @@
 #include "WorkerWS.h"
-#include "../../Worker/Worker.h"
+#include "../../../Includes/HttpUtils.h"
 #include "ResponseSender.h"
 #include "../../HttpParser/HttpParser.h"
 #include "FileManagerTypes.h"

@@ -1,6 +1,6 @@
 // Worker.h
-#ifndef WORKER_H
-#define WORKER_H
+#ifndef WORKER_WS_H
+#define WORKER_WS_H
 
 #include "../../../Includes/ISocket.h"
 

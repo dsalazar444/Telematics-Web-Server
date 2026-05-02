@@ -1,6 +1,7 @@
 #include "HttpUtils.h"
 #include <strings.h>
 #include <stdlib.h>
+#include <string.h>
 
 const char* GetHeaderValue(const HTTPHeaders* headers, const char* key) {
     if (headers == NULL || key == NULL) return NULL;
