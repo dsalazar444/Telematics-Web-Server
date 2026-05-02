@@ -125,9 +125,13 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
         
         pthread_mutex_unlock(&_writeMutex); // despues de escribir, porque si dos hilos tienen diferencia menor a un nanosegundo, generarán mismo nombre -> editarán él uno al otro
         
+        if (!EnsureTrailingSlash(realPath)) {
+            result->_statusCode = 414;
+            return result;
+        }
         // 6. construir location → URI del nuevo recurso
         // Ejm: dirPath = "/uploads" + "/" + fileName = "/uploads/1714392000123.html" -> sin .www/
-        snprintf(result->_location, MAX_PATH_LEN, "%s/%s", absPath, fileName); 
+        snprintf(result->_location, MAX_PATH_LEN, "%s%s", absPath, fileName); 
     }
     // CASO 2: Archivo existente o nuevo (ruta general puede no existir, pero carpeta padre debe existir)
     else {

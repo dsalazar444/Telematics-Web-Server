@@ -28,6 +28,7 @@ int runServer() {
         WorkerWSArgs* args = malloc(sizeof(WorkerWSArgs));
         if (args == NULL) {
             // TODO: liberar client
+            CloseClientSocket(client);
             continue;
         }
         args->client = client;

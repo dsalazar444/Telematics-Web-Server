@@ -102,6 +102,20 @@ int GenerateFileName(const char* contentType, char* outFileName) {
     return 1;
 }
 
+int EnsureTrailingSlash(char* path) {
+    int len = strlen(path);
+
+    // ya termina en / → nada que hacer
+    if (len > 0 && path[len - 1] == '/') return 1;
+
+    // verificar que cabe el slash extra
+    if (len + 1 >= MAX_PATH_LEN) return 0;
+
+    path[len]     = '/';
+    path[len + 1] = '\0';
+    return 1;
+}
+
 // Obtener fecha de ultima modificación de recurso solicitado
 void GetLastModified(const struct stat* pathStat, char* outDate) {
     struct tm* tm = gmtime(&pathStat->st_mtime);
