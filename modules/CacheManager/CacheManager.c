@@ -95,88 +95,112 @@ bool cacheKeyFromRequest(const HTTPRequest *request, char *outKey, size_t outKey
     return true;
 }
 
+static bool CacheWriteMeta(FILE *file,CacheManager *cache,const char *rawKey,const HTTPResponse *response)
+{
+    const char *contentType = findHeader(&response->headers, "Content-Type");
+    if (!contentType)
+        contentType = "application/octet-stream";
+
+    if (fprintf(file,
+                "key=%s\n"
+                "timestamp=%ld\n"
+                "ttl=%d\n"
+                "status=%d\n"
+                "Content-Type=%s\n"
+                "Content-Length=%zu\n",
+                rawKey,
+                (long)time(NULL),
+                cache->ttl,
+                response->statusCode,
+                contentType,
+                response->bodyLength) < 0)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+static bool CacheWriteExtraHeaders(FILE *file, const HTTPResponse *response)
+{
+    for (size_t i = 0; i < response->headers.count; i++)
+    {
+        const char *key = response->headers.headers[i].key;
+        const char *value = response->headers.headers[i].value;
+
+        if (strcasecmp(key, "Content-Type") == 0 ||
+            strcasecmp(key, "Content-Length") == 0)
+            continue;
+
+        if (fprintf(file, "%s=%s\n", key, value) < 0)
+            return false;
+    }
+
+    return true;
+}
+
+static bool CacheWriteBody(FILE *file, const HTTPResponse *response)
+{
+    if (response->bodyLength > 0 && response->body)
+    {
+        if (fwrite(response->body, 1, response->bodyLength, file) != response->bodyLength)
+            return false;
+    }
+    return true;
+}
+
 bool cacheStore(CacheManager *cache, const char *cacheKey, const char *rawKey, const HTTPResponse *response)
 {
-    if (cache == NULL || cacheKey == NULL || response == NULL)
+    if (!cache || !cacheKey || !response)
         return false;
 
     pthread_mutex_lock(&cache->lock);
 
-    // 1. Construir paths de los archivos
-    char bodyPath[512];
-    char metaPath[512];
-    BuildPath(cache, cacheKey, "body", bodyPath, sizeof(bodyPath));
-    BuildPath(cache, cacheKey, "meta", metaPath, sizeof(metaPath));
+    char cachePath[512];
+    BuildPath(cache, cacheKey, "", cachePath, sizeof(cachePath));
 
-    // 2. Escribir el body
-    if (!writeFile(bodyPath, response->body, response->bodyLength, "wb"))
+    FILE *file = fopen(cachePath, "wb");
+    if (!file)
     {
-        fprintf(stderr, "cache_store: error escribiendo body %s\n", bodyPath);
+        perror("fopen");
         pthread_mutex_unlock(&cache->lock);
         return false;
     }
 
-    // 3. Buscar Content-Type en los headers
-    const char *contentType = "application/octet-stream"; // default
-    contentType = findHeader(&response->headers, "Content-Type");
+    // 🔹 Metadata
+    if (!CacheWriteMeta(file, cache, rawKey, response))
+        goto error;
 
-    char metaBuffer[512];
+    // 🔹 Headers extra
+    if (!CacheWriteExtraHeaders(file, response))
+        goto error;
 
-    int len = snprintf(metaBuffer, sizeof(metaBuffer),
-                       "key=%s\n"
-                       "timestamp=%ld\n"
-                       "ttl=%d\n"
-                       "status=%d\n"
-                       "Content-Type=%s\n"
-                       "Content-Length=%zu\n",
-                       rawKey,
-                       (long)time(NULL),
-                       cache->ttl,
-                       response->statusCode,
-                       contentType,
-                       response->bodyLength);
+    // 🔹 Separador
+    if (fputc('\n', file) == EOF)
+        goto error;
 
-    if (len < 0 || len >= sizeof(metaBuffer))
+    // 🔹 Body
+    if (!CacheWriteBody(file, response))
+        goto error;
+
+    fclose(file);
+
+    // 🔹 Índice RAM (reutiliza tu función)
+    if (!CacheAddFromDisk(cache, cacheKey, time(NULL)))
     {
-        fprintf(stderr, "cache_store: error construyendo meta\n");
-        remove(bodyPath);
-        pthread_mutex_unlock(&cache->lock);
-        return false;
-    }
-
-    if (!writeFile(metaPath, metaBuffer, len, "w"))
-    {
-        fprintf(stderr, "cache_store: no se pudo escribir meta\n");
-        remove(bodyPath);
-        pthread_mutex_unlock(&cache->lock);
-        return false;
-    }
-
-    // 5. Actualizar índice en RAM
-    CacheEntry *existing = NULL;
-    HASH_FIND_STR(cache->table, cacheKey, existing);
-
-    if (existing != NULL)
-    {
-        // Ya existe → solo actualizar timestamp
-        existing->timestamp = time(NULL);
-    }
-    else
-    {
-        // Nueva entrada
-        CacheEntry *entry = malloc(sizeof(CacheEntry));
-        if (entry == NULL)
-        {
-            pthread_mutex_unlock(&cache->lock);
-            return false;
-        }
-
-        time_t timestamp = 0;
-        CacheAddFromDisk(cache, cacheKey, time(NULL));
+        fprintf(stderr, "cache_store: no se pudo agregar %s al indice en RAM\n", cacheKey);
+        goto error;
     }
 
     pthread_mutex_unlock(&cache->lock);
     return true;
+
+error:
+    fprintf(stderr, "cache_store: error escribiendo archivo\n");
+    fclose(file);
+    remove(cachePath);
+    pthread_mutex_unlock(&cache->lock);
+    return false;
 }
 
 static void cacheLoadFromDisk(CacheManager *cache)
@@ -192,34 +216,38 @@ static void cacheLoadFromDisk(CacheManager *cache)
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL)
     {
-        // 1. Filtrar .meta
-        char *ext = strrchr(entry->d_name, '.');
-        if (!ext || strcmp(ext, ".meta") != 0)
+        // 1. Filtrar archivos de caché sin extensión
+        if (entry->d_name[0] == '.' || strchr(entry->d_name, '.') != NULL)
             continue;
 
-        // 2. Path del meta
-        char metaPath[512];
-        BuildPath(cache, entry->d_name, "", metaPath, sizeof(metaPath));
+        // 2. Path del archivo único
+        char cachePath[512];
+        BuildPath(cache, entry->d_name, "", cachePath, sizeof(cachePath));
 
-        // 3. Parsear
-        char rawKey[512] = {0};
+        // 3. Parsear metadata y validar que el rawKey corresponde al cacheKey
+        char storedRawKey[512] = {0};
         time_t timestamp = 0;
 
-        if (!parseMetaFile(metaPath, rawKey, sizeof(rawKey), &timestamp))
+        if (!parseMetaFile(cachePath, storedRawKey, sizeof(storedRawKey), &timestamp))
             continue;
 
-        // 4. Generar cacheKey (hash)
-        char cacheKey[33];
-        MD5Hash(rawKey, cacheKey);
+        char expectedCacheKey[33];
+        MD5Hash(storedRawKey, expectedCacheKey);
 
-        // 5. Verificar body
-        if (!cacheBodyExists(cache, cacheKey))
-            continue;
-
-        // 6. Insertar en RAM
-        if (CacheAddFromDisk(cache, cacheKey, timestamp) == false)
+        if (strcmp(expectedCacheKey, entry->d_name) != 0)
         {
-            fprintf(stderr, "cacheLoadFromDisk: no se pudo agregar %s a RAM\n", cacheKey);
+            fprintf(stderr, "cacheLoadFromDisk: clave inconsistente en %s\n", entry->d_name);
+            continue;
+        }
+
+        // 4. Verificar que el archivo siga existiendo y tenga cuerpo
+        if (!cacheBodyExists(cache, entry->d_name))
+            continue;
+
+        // 5. Insertar en RAM
+        if (!CacheAddFromDisk(cache, entry->d_name, timestamp))
+        {
+            fprintf(stderr, "cacheLoadFromDisk: no se pudo agregar %s a RAM\n", entry->d_name);
             continue;
         }
     }
@@ -298,17 +326,12 @@ void FreeCacheManager(CacheManager *cacheManager)
     free(cacheManager);
 }
 
-
-
-
 static CacheEntry *CacheFindEntry(CacheManager *cache, const char *key)
 {
     CacheEntry *entry = NULL;
     HASH_FIND_STR(cache->table, key, entry);
     return entry;
 }
-
-
 
 bool ExpireFileCache(CacheManager *cache, CacheEntry *entry, const char *cacheKey)
 {
@@ -318,29 +341,38 @@ bool ExpireFileCache(CacheManager *cache, CacheEntry *entry, const char *cacheKe
         free(entry);
         cache->entryCount--;
 
-        char bodyPath[512];
-        char metaPath[512];
-        BuildPath(cache, cacheKey, "body", bodyPath, sizeof(bodyPath));
-        BuildPath(cache, cacheKey, "meta", metaPath, sizeof(metaPath));
-        remove(bodyPath);
-        remove(metaPath);
+        char cachePath[512];
+        BuildPath(cache, cacheKey, "", cachePath, sizeof(cachePath));
+        remove(cachePath);
 
         pthread_mutex_unlock(&cache->lock);
         return false;
     }
-}
 
+    return true;
+}
 
 bool CacheAddFromDisk(CacheManager *cache, const char *cacheKey, time_t timestamp)
 {
+    if (cache == NULL || cacheKey == NULL || cacheKey[0] == '\0' || timestamp <= 0)
+        return false;
+
+    if (cache->entryCount >= CACHE_MAX_ENTRIES)
+        return false;
+
+    if (strlen(cacheKey) != 32)
+        return false;
+
     CacheEntry *existing = NULL;
     HASH_FIND_STR(cache->table, cacheKey, existing);
-    if (existing)
+    if (existing != NULL)
         return false;
 
     CacheEntry *entry = malloc(sizeof(CacheEntry));
     if (!entry)
         return false;
+
+    memset(entry, 0, sizeof(*entry));
 
     strncpy(entry->key, cacheKey, sizeof(entry->key) - 1);
     entry->key[sizeof(entry->key) - 1] = '\0';
@@ -351,4 +383,3 @@ bool CacheAddFromDisk(CacheManager *cache, const char *cacheKey, time_t timestam
 
     return true;
 }
-
