@@ -10,6 +10,10 @@
 #include "../../Includes/http.h"
 #include "../../modules/LoadBalancer/loadBalancer.h"
 #include "../../modules/CacheManager/CacheManager.h"
+#include "../HttpParser/HttpParser.h"
+#include "../HttpServer/src/Response.h"
+#include "../HttpServer/src/ResponseSender.h"
+#include "../../Includes/messages.h"
 
 typedef struct {
     IClientSocket *client;
@@ -18,7 +22,7 @@ typedef struct {
 } WorkerArgs;
 
 void* worker(void* arg);
-void ConnectToBackendAndForward(WorkerArgs *w, const HTTPRequest *request);
+void ConnectToBackendAndForward(WorkerArgs *w, ProxyMessage *message);
 void PrintHttpRequest(const HTTPRequest *request);
 //int GetRequestSizes(const char *requestBuffer, int *headerSize, int *contentLength);
 

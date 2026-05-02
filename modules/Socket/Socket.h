@@ -2,10 +2,12 @@
 #define SOCKET_H
 
 #include "../../Includes/ISocket.h" // Para los tipos usados en los prototipos
+#include "../../Includes/http.h"   // Para HTTPRequest
 
 int CreateDualStackSocket();
 int BindSocket(ISocketListener *self, const char *host, int port);
 int ListenSocket(ISocketListener *self, int backlog);
+IClientSocket* CreateClientSocket(const char *host, int port, int timeout_ms);
 IClientSocket* AcceptSocket(ISocketListener *self);
 void CloseListenerSocket(ISocketListener *listener);
 
@@ -15,5 +17,7 @@ void CloseClientSocket(IClientSocket *client);
 void GetPeerName(IClientSocket *client, char *ip_out, int *port_out);
 void GetSockName(IClientSocket *client, char *ip_out, int *port_out);
 int SetClientNonBlocking(IClientSocket *client, int enable);
+int SendHTTPRequest(IClientSocket *socket, const HTTPRequest *request);
+HTTPResponse ReadHTTPResponse(IClientSocket *backend);
 
 #endif // SOCKET_H

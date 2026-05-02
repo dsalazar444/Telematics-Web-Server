@@ -34,7 +34,7 @@ Config LoadConfig(const char* filepath) {
     while (fgets(line, sizeof(line), file) != NULL) {
         if (line[0] == '#' || line[0] == '\n') continue;
         if (sscanf(line, "PORT=%d", &config.port) == 1) continue;
-        if (sscanf(line, "TTL=%hu", &config.ttl) == 1) continue;
+        if (sscanf(line, "TTL_CACHE=%hu", &config.ttl) == 1) continue;
 
         if (strncmp(line, "CACHE_DIR=", 10) == 0) {
             char *value = line + 10;

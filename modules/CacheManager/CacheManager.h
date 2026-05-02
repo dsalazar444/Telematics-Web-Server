@@ -10,7 +10,15 @@
 #include "uthash.h"
 #include <sys/stat.h> 
 #include <sys/types.h>
+#include <errno.h>
+#include <unistd.h>
+#include <dirent.h>
+
 #include "../../Includes/http.h"
+#include "../HttpParser/HttpResponseParser.h"
+#include "../../Includes/messages.h"
+
+// Note: CacheWorker.h is included in CacheManager.c to avoid circular includes
 
 // TODO: cache_lookup(key)Busca en disco si existe entrada válida
 // TODO: cache_store(key, response)Guarda body + meta en disco
@@ -19,12 +27,14 @@
 // TODO: cache_key_from_request(req)Genera la clave a partir del HTTP request
 // TODO: cache_init(config)Inicializa la caché con la configuración dada (TTL, directorio, etc.)
 // TODO: cache_load
-
-typedef struct
-{
+typedef struct {
+    int statusCode;
+    char contentType[128];
+    size_t contentLength;
     time_t timestamp;
-    int ttl;
-} CacheMetadata;
+    size_t ttl;
+    HTTPHeaders extraHeaders;
+} CacheMeta;
 
 typedef struct
 {
@@ -42,10 +52,21 @@ typedef struct
     pthread_mutex_t lock;
 } CacheManager;
 
-CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl);
-void FreeCacheManager(CacheManager *cacheManager);
+typedef struct {
+    CacheManager *cacheManager;
+    char cacheKey[33];
+    char rawKey[512];
+    HTTPResponse response;
+} CacheStoreArgs;
+
+
 bool cacheKeyFromRequest(const HTTPRequest *request, char *outKey, size_t outKeyLen);
-const char* MethodToString(HTTPMethod method);
-void MD5Hash(const char *input, char *output);
+CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl);
+bool CacheStore(CacheManager *cache, const char *cacheKey, const char *rawKey, const HTTPResponse *response);
+static void cacheLoadFromDisk(CacheManager *cache);
+bool CacheLookUp(CacheManager *cache, const char *cacheKey, HTTPResponse *response);
+void CacheStoreAsync(CacheManager *cacheManager, ProxyMessage *proxyMessage);
+void FreeCacheManager(CacheManager *cacheManager);
+
 
 #endif // CACHE_H

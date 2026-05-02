@@ -4,7 +4,7 @@
 #include "../../Includes/http.h"
 #include "UriParser.h"
 
-// TODO: Revisar error 400 si hace falta host
+// En HTTP/1.1 el header Host es obligatorio.
 
 HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t contentLength, unsigned short *statusCode);
 void PrintHttpRequest(const HTTPRequest *request);
