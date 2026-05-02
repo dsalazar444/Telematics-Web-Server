@@ -44,7 +44,7 @@ static void AddCommonHeaders(HTTPResponse* res) {
     char date[64];
     BuildDateHeader(date);
     AddHeader(res, "Date", date);
-    AddHeader(res, "Server", "Server/1.0");
+    AddHeader(res, "Server", "Server/2.0");
 }
 
 HTTPResponse* ResponseError(int statusCode) {
