@@ -78,13 +78,11 @@ void GetMimeTypeByExtension(const char* path, char* outMime) {
 int GenerateFileName(const char* contentType, char* outFileName) {
     const char* ext = ".bin";  // default
 
-    // generamos extensión
-    if (contentType != NULL) {
-        for (int i = 0; MIME_TABLE[i].mimeType != NULL; i++) {
-            if (strcasecmp(contentType, MIME_TABLE[i].mimeType) == 0) {
-                ext = MIME_TABLE[i].extension;
-                break;
-            }
+    // generamos extensión (basado en contenttype, no en uri)
+    for (int i = 0; MIME_TABLE[i].mimeType != NULL; i++) {
+        if (strcasecmp(contentType, MIME_TABLE[i].mimeType) == 0) {
+            ext = MIME_TABLE[i].extension;
+            break;
         }
     }
 

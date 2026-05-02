@@ -30,16 +30,16 @@ static FileResult* InitResult(){
     result->_mimeType[0] = '\0';
     result->_lastModified[0] = '\0';
     result->_location[0] = '\0';
-    result->_statusCode = 200;
+    result->_statusCode = 0;
 
     return result;
 
 }
 
 // Orquesta todo lo del get
-// Headers que genera: 
-//getMetadata: status, contenttype, last_modified
-// read: content, contentlen
+// Headers que llena: 
+//getMetadata: status, si existe url -> contenttype, last_modified
+// read: si exite url -> content, contentlen
 FileResult* FileGet(const char* absPath) {
    
     FileResult* result = InitResult();
@@ -49,17 +49,20 @@ FileResult* FileGet(const char* absPath) {
     struct stat pathStat;
 
     if (!GetFileMetadata(absPath, realPath, &pathStat, result)) {
-        return result;  // statusCode ya seteado adentro
+        return result;  // statusCode ya seteado adentro si error
     }
 
     // GET lee el body
     if (!ReadFile(realPath, &pathStat, result)) {
         result->_statusCode = 500;
+        return result;
     }
 
+    result->_statusCode = 200;
     return result;
 }
 
+// si archivo no existe me llena solo su statuscode
 FileResult* FileHead(const char* absPath) {
     FileResult* result = InitResult();
     if (result == NULL) return NULL;
@@ -68,26 +71,24 @@ FileResult* FileHead(const char* absPath) {
     struct stat pathStat;
 
     // HEAD solo necesita metadata — no llama ReadFile
-    GetFileMetadata(absPath, realPath, &pathStat, result);
-
-    if (result->_statusCode == 200) {
-        // RFC 9.4 dice que Content-Length debe ser el mismo que tendría un GET equivalente 
-        result->_contentLen = pathStat.st_size;
-    } else{
-        result->_contentLen = 0; // para en response asignarle tamaño de html message
+    if(!GetFileMetadata(absPath, realPath, &pathStat, result)){
+        return result;  // statusCode ya seteado adentro si error
     }
+
+    result->_statusCode == 200;
+    result->_contentLen = pathStat.st_size;
+
 
     return result;
 }
 
-// Orquesta todo del post (path de post es una carpeta, para crear archivo ahi, o un archivo a modificar)
+// Orquesta todo del post (path de post es una carpeta, para crear archivo ahi, o un archivo a modificar/crear)
 // atributos que asigna a fileresult (no headers):
-// statusCode, location, 
-// atributos que no: content, contentLen, mime, last_mod, location, 
+// statusCode, si 201 -> location, 
+// atributos que no: content, contentLen, mime, last_mod, si 200 -> location, 
 FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, const char* contentType) {
     FileResult* result = InitResult();
     if (result == NULL) return NULL;
-    // NO hay que verificar body vacio, cache lo hace
 
     // 1. construir ruta real (añadimos .www)
     char realPath[MAX_PATH_LEN];
@@ -96,7 +97,6 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
         return result;
      }
 
-    //result->_contentLen = 0; porque retornamos html descriptivo, entonces ese tamaño se calcula cuando se genere tal html
     int isNew = 0;
 
     // 2. stat() para ver si es directorio
@@ -104,7 +104,7 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
     
     // CASO 1: Ruta existe y es directorio → generar nombre aleatorio -> solo s_isdir si stat retorna 0 -> no riesgo de comportamiento innesaperado
     if (stat(realPath, &pathStat) == 0 && S_ISDIR(pathStat.st_mode)) {
-        char fileName[256];
+        char fileName[MAX_PATH_LEN];
         pthread_mutex_lock(&_writeMutex);
         if(!GenerateFileName(contentType, fileName)){
             result->_statusCode = 500; // error de server porque fue por limitaciones nuestras que no pudimos procesar la peticion -> nueva uri muy larga
@@ -122,9 +122,10 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
         }
         
         pthread_mutex_unlock(&_writeMutex); // despues de escribir, porque si dos hilos tienen diferencia menor a un nanosegundo, generarán mismo nombre -> editarán él uno al otro
+        
         // 6. construir location → URI del nuevo recurso
-        // Ejm: dirPath = "/uploads" + "/" + fileName = "/uploads/1714392000123.html"
-        snprintf(result->_location, MAX_PATH_LEN, "%s/%s", absPath, fileName);
+        // Ejm: dirPath = "/uploads" + "/" + fileName = "/uploads/1714392000123.html" -> sin .www/
+        snprintf(result->_location, MAX_PATH_LEN, "%s/%s", absPath, fileName); 
     }
     // CASO 2: Archivo existente o nuevo (ruta general puede no existir, pero carpeta padre debe existir)
     else {
@@ -141,8 +142,9 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
             return result;
         }
 
-        // 5. Location header vacio porque como fue edición, no hay que mandarlo
-        result->_location[0] = '\0';
+        if (isNew){ // aunque me den el nombre, debo devolver el location porque 201
+            snprintf(result->_location, MAX_PATH_LEN, "%s", absPath); 
+        }
     }
 
     // 4. llenar resultado

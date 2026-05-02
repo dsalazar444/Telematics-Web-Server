@@ -1,5 +1,6 @@
 #include "Response.h"
 #include "ResponseBody.h"
+#include "FileManagerTypes.h"
 #include "../../../Includes/HttpUtils.h"
 #include <stdio.h>
 #include <string.h>
@@ -64,7 +65,7 @@ static void AddCommonHeaders(HTTPResponse* res) {
 }
 
 HTTPResponse* ResponseError(int statusCode) {
-    HTTPResponse* res = InitResponse(statusCode);
+    HTTPResponse* res = InitResponse(statusCode); // res-> code y codeMessage
     if (res == NULL) return NULL;
 
     AddCommonHeaders(res); // Date y sever
@@ -91,6 +92,19 @@ HTTPResponse* ResponseError(int statusCode) {
     // Añade el header Content-Length con el valor calculado en lenStr
     AddHeader(res, "Content-Length", lenStr);
 
+    return res;
+}
+
+
+HTTPResponse* ResponseErrorHead(int statusCode) {
+    HTTPResponse* res = ResponseError(statusCode);
+    if (res == NULL) return NULL;
+    
+    // quitar body — HEAD no manda body, dejamos headers
+    free(res->body);
+    res->body       = NULL;
+    res->bodyLength = 0;
+    
     return res;
 }
 
@@ -122,10 +136,15 @@ HTTPResponse* ResponseGet(FileResult* fileResult) {
 
     // date y server
     AddCommonHeaders(res); 
-    AddFileResultHeaders(res, fileResult); //Content-Type, Content-Length, Last-Modified
+    AddFileResultHeaders(res, fileResult); //Content-Type, Content-Length, Last-Modified porque code fue 200
 
     // copiar body
     size_t bodyLen = FileResultGetContentLen(fileResult);
+    if (bodyLen == 0) {
+        ResponseFree(res);
+        return ResponseError(500);
+    }
+    
     unsigned char* body = malloc(bodyLen);
     if (body == NULL) {
         ResponseFree(res);
@@ -143,32 +162,22 @@ HTTPResponse* ResponseGet(FileResult* fileResult) {
 // NO RETORNO HTML MESSAGE, pero sí su tamaño
 // Headers: date, server, content-type, content-len y last_modif. si archivo existe
 HTTPResponse* ResponseHead(FileResult* fileResult) {
-    if (fileResult == NULL || FileResultGetStatusCode(fileResult) != 200) {
-        int code = fileResult ? FileResultGetStatusCode(fileResult) : 500;
-        return ResponseError(code);
-    }
+    if (fileResult == NULL) return ResponseErrorHead(500);
 
+    int statusCode = FileResultGetStatusCode(fileResult);
+
+    // si hay error → ResponseErrorHead ya maneja todo
+    if (statusCode != 200) return ResponseErrorHead(statusCode);
+
+    // éxito → construir response normal sin body
     HTTPResponse* res = InitResponse(200);
     if (res == NULL) return NULL;
 
-    AddCommonHeaders(res); //Tdata y server
-    if (FileResultGetContentLen(fileResult) != 0) { // porque significa que se le asignó de forma correcta en FM
-        AddFileResultHeaders(res, fileResult);
+    AddCommonHeaders(res);
+    AddFileResultHeaders(res, fileResult);
 
-    } else {
-        size_t bodyLen = 0;
-        unsigned char* tmp = GenerateErrorBody(404, "Not Found", &bodyLen);
-        free(tmp); // Solo interesa bodyLen
-        
-        char lenStr[32];
-        snprintf(lenStr, sizeof(lenStr), "%zu", bodyLen); // convertimos num a text
-        AddHeader(res, "Content-Type",   "text/html");
-        AddHeader(res, "Content-Length", lenStr);
-        //last_modified no porque archivo solicitado no existe    
-    }
-    // sin body — eso es todo lo que diferencia HEAD de GET
-    res->body = NULL;
-    res->bodyLength = 0; //no son headers, son atributos de struct
+    res->body       = NULL;
+    res->bodyLength = 0;
 
     return res;
 }
@@ -192,12 +201,21 @@ HTTPResponse* ResponsePost(const HTTPRequest* req, FileResult* fileResult) {
     // Location — siempre en POST exitoso
     const char* location = FileResultGetLocation(fileResult);
     if (location != NULL && location[0] != '\0') { // o sea, code es 201
+
         // construir URL completa con Host del request
         const char* host = GetHeaderValue(&req->headers, "Host"); 
+        
+        int written;
         if (host != NULL) {
-            char fullLocation[512];
-            snprintf(fullLocation, sizeof(fullLocation), "http://%s%s", host, location);
-            AddHeader(res, "Location", fullLocation);
+
+            char fullLocation[MAX_PATH_LEN];
+            written = snprintf(fullLocation, sizeof(fullLocation), "http://%s%s", host, location);
+
+            if (written < 0 || written >= MAX_PATH_LEN) {
+                AddHeader(res, "Location", location);
+            } else {
+                AddHeader(res, "Location", fullLocation);
+            }
         } else {
             AddHeader(res, "Location", location);
         }
@@ -208,6 +226,10 @@ HTTPResponse* ResponsePost(const HTTPRequest* req, FileResult* fileResult) {
     unsigned char* body = NULL;
 
     if (statusCode == 201) {
+        if (location == NULL || location[0] == '\0' ) {
+            ResponseFree(res);
+            return ResponseError(500);
+        }
         // 201 → página de confirmación con link
         body = GenerateCreatedBody(location, &bodyLen);
     } else {
@@ -235,6 +257,7 @@ void ResponseFree(HTTPResponse* response) {
     if (response) {
         if (response->body) {
             free(response->body);
+            response->body = NULL;
         }
         free(response);
     }

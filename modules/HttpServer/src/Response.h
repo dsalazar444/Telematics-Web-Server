@@ -14,6 +14,7 @@ HTTPResponse* ResponseGet(FileResult* fileResult);
 HTTPResponse* ResponseHead(FileResult* fileResult);
 HTTPResponse* ResponsePost(const HTTPRequest* req, FileResult* fileResult);
 HTTPResponse* ResponseError(int statusCode);
+HTTPResponse* ResponseErrorHead(int statusCode);
 void ResponseFree(HTTPResponse* response);
 
 #endif

@@ -5,6 +5,38 @@
 #include "FileManagerTypes.h"
 #include "../../Worker/Worker.h"
 
+void* WorkerRun(void* arg) {
+
+    // casteamos arg a tipo real
+    WorkerWSArgs *workerArgs = (WorkerWSArgs*)arg;
+    IClientSocket *client = workerArgs->client;
+    free(arg);  // liberar el malloc de main
+
+    // recibir request
+    HTTPRequest* req = RecvRequest(client);
+    PrintHttpRequest(req);
+
+    // procesar
+    HTTPResponse* res = ProcessRequest(req);
+    if (res == NULL) {
+        res = ResponseError(500);
+    }
+    PrintHttpResponse(res);
+    
+    // enviar response
+    int sent = SendHTTPResponse(client, res);
+    if (sent < 0) {
+        // Hubo un error al enviar la respuesta
+        log_error("Fallo al enviar respuesta al cliente");
+        // Puedes cerrar el socket o intentar reenviar, etc.
+    }
+
+    // limpiar
+    RequestFree(req);
+    ResponseFree(res);
+    CloseClientSocket(client);
+    return NULL;
+}
 
 static HTTPRequest* RecvRequest(IClientSocket* client) {
 
@@ -42,7 +74,6 @@ static HTTPRequest* RecvRequest(IClientSocket* client) {
         // Ya tenemos la petición completa (headers)
         unsigned short statusCode = 0;
         HTTPRequest *request = ParseHTTPRequest(requestBuffer, headerSize, contentLength, &statusCode);
-
      
         if (request == NULL || statusCode != 0)
         {
@@ -53,65 +84,22 @@ static HTTPRequest* RecvRequest(IClientSocket* client) {
             continue; //esperamos otra petición
          }
         
-         
         // Limpiar buffer para la siguiente petición
         requestLen = 0;
         memset(requestBuffer, 0, sizeof(requestBuffer));
 
-        return request;
+        return request; //solo retorna request bueno
     }
- 
-}
-
-
-void* WorkerRun(void* arg) {
-
-    // casteamos arg a tipo real
-    WorkerWSArgs *workerArgs = (WorkerWSArgs*)arg;
-    IClientSocket *client = workerArgs->client;
-
-    //Socket* clientSocket = *(Socket**)arg;
-    free(arg);  // liberar el malloc de WorkerStart
-
-    // recibir request
-    HTTPRequest* req = RecvRequest(client);
-    if (req == NULL) {
-        socket_close(client);
-        return NULL;
-    }
-
-    PrintHttpRequest(req);
-
-    // procesar
-    HTTPResponse* res = ProcessRequest(req);
-    if (res == NULL) {
-        res = ResponseError(500);
-    }
-
-    PrintHttpResponse(res);
-    
-    // enviar response
-    int sent = SendHTTPResponse(client, res);
-    if (sent < 0) {
-        // Hubo un error al enviar la respuesta
-        log_error("Fallo al enviar respuesta al cliente");
-        // Puedes cerrar el socket o intentar reenviar, etc.
-    }
-
-    // limpiar
-    RequestFree(req);
-    ResponseFree(res);
-    CloseClientSocket(client);
-    return NULL;
 }
 
 static HTTPResponse* ProcessRequest(const HTTPRequest* req) {
-    //const char* host = GetHeaderValue(&req->headers, "Host");
 
+    // obtenemos path
     char path[256];
     strncpy(path, req->path, sizeof(path) - 1);
     path[255] = '\0';
 
+    // obtenemos el metodo del req
     switch (req->method) {
         case GET:     return HandleGet(&path);
         case HEAD:    return HandleHead(&path);

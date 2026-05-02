@@ -27,7 +27,7 @@ unsigned char* GenerateErrorBody(int statusCode, const char* statusMessage, size
 
     // copiamos el contenido del buffer local al buffer dinamico body
     memcpy(body, buffer, len + 1);
-    *outLen = (size_t)len;
+    *outLen = (size_t)len; // cambiamos valor en memoria donde apuntaba el puntero
     return body;
 }
 
