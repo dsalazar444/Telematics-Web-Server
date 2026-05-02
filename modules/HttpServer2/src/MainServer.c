@@ -18,7 +18,7 @@ int runServer() {
     if (ListenSocket(&listener, 128) < 0)
         return 1;
 
-    printf("Server/1.0 HTTP escuchando en puerto %d\n", PORT);
+    printf("Server/2.0 HTTP escuchando en puerto %d\n", PORT);
 
     while (1)
     {
