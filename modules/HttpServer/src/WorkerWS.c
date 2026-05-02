@@ -70,24 +70,17 @@ static HTTPRequest* RecvRequest(IClientSocket* client) {
         int requestInfoStatus = GetRequestSizes(requestBuffer, &headerSize, &contentLength); // mira si ya tiene headers completos, y cuanto body debe esperar
 
         // no hay más validaciones pues las hace el LB
-        if (requestInfoStatus == 0) // todavia faltan headers (no hay secuencia \r\n\r\)
-        {
-            continue;
-        }
+        if (requestInfoStatus == 0) continue;// todavia faltan headers (no hay secuencia \r\n\r\)
 
         int expectedSize = headerSize + contentLength;
-        if (requestLen < expectedSize) // todavia falta info
-        {
-            continue;
-        }
-
+        if (requestLen < expectedSize) continue;// todavia falta info
+    
         // Ya tenemos la petición completa (headers)
         unsigned short statusCode = 0;
         HTTPRequest *request = ParseHTTPRequest(requestBuffer, headerSize, contentLength, &statusCode);
      
         if (request == NULL || statusCode != 0)
         {
-            printf("error recibiendo request acá en ws");
             // limpiamos
             requestLen = 0;
             memset(requestBuffer, 0, sizeof(requestBuffer));
@@ -103,12 +96,12 @@ static HTTPRequest* RecvRequest(IClientSocket* client) {
 }
 
 static HTTPResponse* ProcessRequest(const HTTPRequest* req) {
-    printf("llegué a processrequest en w\ns");
+    
     // obtenemos path
     char path[256];
     strncpy(path, req->path, sizeof(path) - 1);
     path[255] = '\0';
-    printf("path que saco de processreques llega %s\n", path);
+
     // obtenemos el metodo del req
     switch (req->method) {
         case GET:     return HandleGet(path);
@@ -119,7 +112,6 @@ static HTTPResponse* ProcessRequest(const HTTPRequest* req) {
 }
 
 static HTTPResponse* HandleGet(const char* path) {
-    printf("llegué a handleget en ws");
     FileResult* fileResult = FileGet(path); // obtiene struct con atributos necesarios para construir el response
     HTTPResponse* res = ResponseGet(fileResult);
     FileResultFree(fileResult);
@@ -127,7 +119,6 @@ static HTTPResponse* HandleGet(const char* path) {
 }
 
 static HTTPResponse* HandleHead(const char* path) {
-    printf("llegué a handlehead en ws");
     FileResult* fileResult = FileHead(path);
     HTTPResponse* res = ResponseHead(fileResult);
     FileResultFree(fileResult);
@@ -142,8 +133,7 @@ static HTTPResponse* HandlePost(const HTTPRequest* req, const char* path) {
     // Content-Length es obligatorio en POST — RFC §4.4
     const char* contentLen = GetHeaderValue(&req->headers, "Content-Length");
     if (contentLen == NULL) return ResponseError(411);  // 411 Length Required
-    printf("llegué a handlepost en ws");
-
+    
     FileResult* fileResult = FilePost(path, (const char*)req->body, req->bodyLength, contentType);
     HTTPResponse* res = ResponsePost(req, fileResult);
     FileResultFree(fileResult);
@@ -151,7 +141,6 @@ static HTTPResponse* HandlePost(const HTTPRequest* req, const char* path) {
 }
 
 void PrintHttpResponse(const HTTPResponse *res) {
-    printf("\n"); // Separador de request
     // Status line
     printf("HTTP/1.1 %d %s\n", res->statusCode, res->statusMessage);
 

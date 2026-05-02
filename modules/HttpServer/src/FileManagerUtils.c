@@ -41,29 +41,23 @@ void FileManagerSetRoot(const char* root) {
 
 // Genera path completo, añadiendo ./www al absPath -> retorna 1 si éxito, 0 si falla (porque ruta muy larga)
 int BuildRealPath(const char* absPath, char* outPath) {
-    printf("entré a buildrealpath en ws\n");
 
     int rootLen = strlen(_documentRoot);
     int pathLen = strlen(absPath);
 
     // verificar que no superamos el límite
     if (rootLen + pathLen >= MAX_PATH_LEN) return 0;
-    printf("uri no es muy larga\n");
 
     // construir ruta real
     strncpy(outPath, _documentRoot, MAX_PATH_LEN - 1);
     strncat(outPath, absPath, MAX_PATH_LEN - rootLen - 1);
     outPath[MAX_PATH_LEN - 1] = '\0';
-    printf("todo oken buildpath ws\n");
 
     return 1;
 }
 
 // Obtener tipo del body request con method get o head, puesto que estos no traen obligatoriamente content-type
 void GetMimeTypeByExtension(const char* path, char* outMime) {
-    printf("entré a getmimetype... en ws\n");
-
-    printf("path que llega %s\n", path);
 
     // buscar el último punto en el path
     const char* ext = strrchr(path, '.');
@@ -80,16 +74,11 @@ void GetMimeTypeByExtension(const char* path, char* outMime) {
 
     strncpy(outMime, "application/octet-stream", 63);
     outMime[63] = '\0';
-    printf("todo bien en getmime: %d en ws \n", *outMime);
-
-    printf("path que se va %s\n", path);
-
 }
 
 // Generamos nombre de archivo a crear con post, usando el timestamp, random byte y la extensión
 // Retorna 1 si éxito, 0 si el nombre excede MAX_PATH_LEN
 int GenerateFileName(const char* contentType, char* outFileName) {
-    printf("entré a generatefile\n");
 
     const char* ext = ".bin";  // default
 
@@ -107,7 +96,6 @@ int GenerateFileName(const char* contentType, char* outFileName) {
     // verificamos que nueva url no exceda max_path_len porque habria desborde de buffer
     int written = snprintf(outFileName, MAX_PATH_LEN, "%ld%ld%d%s", (long)ts.tv_sec, (long)ts.tv_nsec, randomByte, ext);
     if (written < 0 || written >= MAX_PATH_LEN) {
-        printf("falle generatename, uri too long\n");
         outFileName[0] = '\0';
         return 0;
     }
@@ -116,8 +104,6 @@ int GenerateFileName(const char* contentType, char* outFileName) {
 
 // Obtener fecha de ultima modificación de recurso solicitado
 void GetLastModified(const struct stat* pathStat, char* outDate) {
-    printf("entré a getlastmodified\n");
-
     struct tm* tm = gmtime(&pathStat->st_mtime);
 
     if (tm == NULL) {
