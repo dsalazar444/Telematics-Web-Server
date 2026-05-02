@@ -119,7 +119,17 @@ void ConnectToBackendAndForward(WorkerArgs *workerArgs, ProxyMessage *message){
     LoadBalancer *lb = workerArgs->lb;
     BackendNode backend = LoadBalancerSelectBackend(lb);
     (void)message;
+    IClientSocket *backendSocket = CreateClientSocket(backend.id.ip, backend.id.port, 5000);
     IncrementActiveConnections(lb, &backend);
+    HTTPResponse response = ReadHTTPResponse(backendSocket, workerArgs->client);
+    DecrementActiveConnections(lb, &backend);
+
+    message->response = response; // Marcar para replicación si se desea
+
+    if (response.statusCode == 200 && message->shouldReplicate) {
+        // Lanzar hilo de replicación (ej: pthread_create con replicatorWorker)
+        // Pasar message y backend.id para que el replicator sepa qué replicar y a dónde
+    }
 
     // NOTE: ownership of `message` (and message->request) is transferred here.
     // If this function performs the final handling, it must free them when done.

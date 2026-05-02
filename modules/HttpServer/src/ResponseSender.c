@@ -13,8 +13,8 @@ int SendHTTPResponse(IClientSocket *client, HTTPResponse *response)
 
     for (size_t i = 0; i < response->headers.count && off < (int)sizeof(headersBuf) - 1; ++i) {
         int n = snprintf(headersBuf + off, sizeof(headersBuf) - off, "%s: %s\r\n",
-                         response->headers.headers[i].key,
-                         response->headers.headers[i].value);
+                        response->headers.headers[i].key,
+                        response->headers.headers[i].value);
         if (n < 0) return -1;
         off += n;
     }
