@@ -42,7 +42,7 @@ static FileResult* InitResult(){
 //getMetadata: status, si existe url -> contenttype, last_modified
 // read: si exite url -> content, contentlen
 FileResult* FileGet(const char* absPath) {
-   
+
     FileResult* result = InitResult();
     if (result == NULL) return NULL;
 
@@ -65,6 +65,7 @@ FileResult* FileGet(const char* absPath) {
 
 // si archivo no existe me llena solo su statuscode
 FileResult* FileHead(const char* absPath) {
+
     FileResult* result = InitResult();
     if (result == NULL) return NULL;
 
@@ -76,10 +77,8 @@ FileResult* FileHead(const char* absPath) {
         return result;  // statusCode ya seteado adentro si error
     }
 
-    result->_statusCode == 200;
+    result->_statusCode = 200;
     result->_contentLen = pathStat.st_size;
-
-
     return result;
 }
 
@@ -88,16 +87,17 @@ FileResult* FileHead(const char* absPath) {
 // statusCode, si 201 -> location, 
 // atributos que no: content, contentLen, mime, last_mod, si 200 -> location, 
 FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, const char* contentType) {
+
     FileResult* result = InitResult();
     if (result == NULL) return NULL;
 
-    // 1. construir ruta real (añadimos .www)
+    // 1. construir ruta real (añadimos ....www)
     char realPath[MAX_PATH_LEN];
     if (!BuildRealPath(absPath, realPath)) {
         result->_statusCode = 414; //uri too long
         return result;
-     }
-
+    }
+    
     int isNew = 0;
 
     // 2. stat() para ver si es directorio
@@ -105,6 +105,7 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
     
     // CASO 1: Ruta existe y es directorio → generar nombre aleatorio -> solo s_isdir si stat retorna 0 -> no riesgo de comportamiento innesaperado
     if (stat(realPath, &pathStat) == 0 && S_ISDIR(pathStat.st_mode)) {
+
         char fileName[MAX_PATH_LEN];
         pthread_mutex_lock(&_writeMutex);
         if(!GenerateFileName(contentType, fileName)){
@@ -124,15 +125,19 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
         
         pthread_mutex_unlock(&_writeMutex); // despues de escribir, porque si dos hilos tienen diferencia menor a un nanosegundo, generarán mismo nombre -> editarán él uno al otro
         
+        if (!EnsureTrailingSlash(realPath)) {
+            result->_statusCode = 414;
+            return result;
+        }
         // 6. construir location → URI del nuevo recurso
         // Ejm: dirPath = "/uploads" + "/" + fileName = "/uploads/1714392000123.html" -> sin .www/
-        snprintf(result->_location, MAX_PATH_LEN, "%s/%s", absPath, fileName); 
+        snprintf(result->_location, MAX_PATH_LEN, "%s%s", absPath, fileName); 
     }
     // CASO 2: Archivo existente o nuevo (ruta general puede no existir, pero carpeta padre debe existir)
     else {
         // Verificar que la carpeta padre existe
         char parentDirPath[MAX_PATH_LEN];
-        if (!GetParentDir(realPath, parentDirPath) || !CheckDirExists(parentDirPath)) {
+        if (!GetParentDir(realPath, parentDirPath) || !CheckDirExists(parentDirPath)) {           
             result->_statusCode = 404;
             return result;
         }
@@ -161,7 +166,6 @@ void FileResultFree(FileResult* result) {
     }
     free(result);
 }
-
 
 // getter
 int            FileResultGetStatusCode(const FileResult* r)   { return r->_statusCode; }

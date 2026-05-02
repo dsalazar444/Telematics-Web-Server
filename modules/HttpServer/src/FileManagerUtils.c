@@ -32,7 +32,7 @@ static const MimeEntry MIME_TABLE[] = {
     { NULL, NULL }  // centinela — marca el fin de la tabla
 };
 
-static char _documentRoot[MAX_PATH_LEN] = "./www";
+static char _documentRoot[MAX_PATH_LEN] = "./modules/HttpServer/www";
 
 void FileManagerSetRoot(const char* root) {
     strncpy(_documentRoot, root, MAX_PATH_LEN - 1);
@@ -41,6 +41,7 @@ void FileManagerSetRoot(const char* root) {
 
 // Genera path completo, añadiendo ./www al absPath -> retorna 1 si éxito, 0 si falla (porque ruta muy larga)
 int BuildRealPath(const char* absPath, char* outPath) {
+
     int rootLen = strlen(_documentRoot);
     int pathLen = strlen(absPath);
 
@@ -57,6 +58,7 @@ int BuildRealPath(const char* absPath, char* outPath) {
 
 // Obtener tipo del body request con method get o head, puesto que estos no traen obligatoriamente content-type
 void GetMimeTypeByExtension(const char* path, char* outMime) {
+
     // buscar el último punto en el path
     const char* ext = strrchr(path, '.');
     
@@ -77,6 +79,7 @@ void GetMimeTypeByExtension(const char* path, char* outMime) {
 // Generamos nombre de archivo a crear con post, usando el timestamp, random byte y la extensión
 // Retorna 1 si éxito, 0 si el nombre excede MAX_PATH_LEN
 int GenerateFileName(const char* contentType, char* outFileName) {
+
     const char* ext = ".bin";  // default
 
     // generamos extensión (basado en contenttype, no en uri)
@@ -99,9 +102,24 @@ int GenerateFileName(const char* contentType, char* outFileName) {
     return 1;
 }
 
+int EnsureTrailingSlash(char* path) {
+    int len = strlen(path);
+
+    // ya termina en / → nada que hacer
+    if (len > 0 && path[len - 1] == '/') return 1;
+
+    // verificar que cabe el slash extra
+    if (len + 1 >= MAX_PATH_LEN) return 0;
+
+    path[len]     = '/';
+    path[len + 1] = '\0';
+    return 1;
+}
+
 // Obtener fecha de ultima modificación de recurso solicitado
 void GetLastModified(const struct stat* pathStat, char* outDate) {
     struct tm* tm = gmtime(&pathStat->st_mtime);
+
     if (tm == NULL) {
         outDate[0] = '\0';
         return;

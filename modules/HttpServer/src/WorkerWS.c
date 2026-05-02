@@ -70,24 +70,17 @@ static HTTPRequest* RecvRequest(IClientSocket* client) {
         int requestInfoStatus = GetRequestSizes(requestBuffer, &headerSize, &contentLength); // mira si ya tiene headers completos, y cuanto body debe esperar
 
         // no hay más validaciones pues las hace el LB
-        if (requestInfoStatus == 0) // todavia faltan headers (no hay secuencia \r\n\r\)
-        {
-            continue;
-        }
+        if (requestInfoStatus == 0) continue;// todavia faltan headers (no hay secuencia \r\n\r\)
 
         int expectedSize = headerSize + contentLength;
-        if (requestLen < expectedSize) // todavia falta info
-        {
-            continue;
-        }
-
+        if (requestLen < expectedSize) continue;// todavia falta info
+    
         // Ya tenemos la petición completa (headers)
         unsigned short statusCode = 0;
         HTTPRequest *request = ParseHTTPRequest(requestBuffer, headerSize, contentLength, &statusCode);
      
         if (request == NULL || statusCode != 0)
         {
-            printf("error recibiendo request acá en ws");
             // limpiamos
             requestLen = 0;
             memset(requestBuffer, 0, sizeof(requestBuffer));
@@ -103,7 +96,7 @@ static HTTPRequest* RecvRequest(IClientSocket* client) {
 }
 
 static HTTPResponse* ProcessRequest(const HTTPRequest* req) {
-
+    
     // obtenemos path
     char path[256];
     strncpy(path, req->path, sizeof(path) - 1);
@@ -140,7 +133,7 @@ static HTTPResponse* HandlePost(const HTTPRequest* req, const char* path) {
     // Content-Length es obligatorio en POST — RFC §4.4
     const char* contentLen = GetHeaderValue(&req->headers, "Content-Length");
     if (contentLen == NULL) return ResponseError(411);  // 411 Length Required
-
+    
     FileResult* fileResult = FilePost(path, (const char*)req->body, req->bodyLength, contentType);
     HTTPResponse* res = ResponsePost(req, fileResult);
     FileResultFree(fileResult);

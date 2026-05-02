@@ -8,6 +8,7 @@
 #include "modules/Worker/Worker.h"
 #include "modules/CacheManager/CacheManager.h"
 #include <stdlib.h>
+#include "modules/HttpServer/src/MainServer.h"
 
 int main()
 {
@@ -26,6 +27,7 @@ int main()
 
     printf("Servidor escuchando en puerto %d\n", config.port);
 
+
     // Crear el LoadBalancer con los backends y el contador
     LoadBalancer *lb = LoadBalancerCreate(config.backends, config.backendCount);
     LoadBalancerPrint(lb);
@@ -43,6 +45,10 @@ int main()
     pthread_create(&health_thread, NULL, HealthCheckLoop, lb);
     pthread_detach(health_thread); // dejar que corra independientemente
 
+    pthread_t server_thread;
+    pthread_create(&server_thread, NULL, (void*(*)(void*))runServer, NULL);
+    pthread_detach(server_thread);
+    
     while (1)
     {
         IClientSocket *client = AcceptSocket(&listener);

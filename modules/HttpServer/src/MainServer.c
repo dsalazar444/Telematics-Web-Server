@@ -7,7 +7,7 @@
 
 const int PORT = 8082;
 
-int mainServer() {
+int runServer() {
     ISocketListener listener;
     listener.fd = CreateDualStackSocket();
     if (listener.fd < 0)
@@ -18,18 +18,17 @@ int mainServer() {
     if (ListenSocket(&listener, 128) < 0)
         return 1;
 
-    printf("Servidor HTTP escuchando en puerto %d\n", PORT);
+    printf("Server/1.0 HTTP escuchando en puerto %d\n", PORT);
 
     while (1)
     {
         IClientSocket* client = AcceptSocket(&listener);
         if (client == NULL) continue;
 
-        printf("Cliente conectado fd: %d\n", client->fd);
-
         WorkerWSArgs* args = malloc(sizeof(WorkerWSArgs));
         if (args == NULL) {
             // TODO: liberar client
+            CloseClientSocket(client);
             continue;
         }
         args->client = client;

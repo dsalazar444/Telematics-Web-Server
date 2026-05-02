@@ -48,6 +48,7 @@ static void AddCommonHeaders(HTTPResponse* res) {
 }
 
 HTTPResponse* ResponseError(int statusCode) {
+
     HTTPResponse* res = InitResponse(statusCode); // res-> code y codeMessage
     if (res == NULL) return NULL;
 
@@ -80,6 +81,7 @@ HTTPResponse* ResponseError(int statusCode) {
 
 
 HTTPResponse* ResponseErrorHead(int statusCode) {
+
     HTTPResponse* res = ResponseError(statusCode);
     if (res == NULL) return NULL;
     
@@ -108,6 +110,7 @@ static void AddFileResultHeaders(HTTPResponse* res, FileResult* fileResult) {
 
 // Headers: date, server, content-type, content-len y last_modif
 HTTPResponse* ResponseGet(FileResult* fileResult) {
+
     // si FileManager reportó error → response de error
     if (fileResult == NULL || FileResultGetStatusCode(fileResult) != 200) { // en get, si exito, solo retorno 200s
         int code = fileResult ? FileResultGetStatusCode(fileResult) : 500;
@@ -138,20 +141,20 @@ HTTPResponse* ResponseGet(FileResult* fileResult) {
     memcpy(body, FileResultGetContent(fileResult), bodyLen);
     res->body = body;
     res->bodyLength = bodyLen;
-
     return res;
 }
 
 // NO RETORNO HTML MESSAGE, pero sí su tamaño
 // Headers: date, server, content-type, content-len y last_modif. si archivo existe
 HTTPResponse* ResponseHead(FileResult* fileResult) {
+
     if (fileResult == NULL) return ResponseErrorHead(500);
 
     int statusCode = FileResultGetStatusCode(fileResult);
 
     // si hay error → ResponseErrorHead ya maneja todo
     if (statusCode != 200) return ResponseErrorHead(statusCode);
-
+    
     // éxito → construir response normal sin body
     HTTPResponse* res = InitResponse(200);
     if (res == NULL) return NULL;
@@ -159,7 +162,7 @@ HTTPResponse* ResponseHead(FileResult* fileResult) {
     AddCommonHeaders(res);
     AddFileResultHeaders(res, fileResult);
 
-    res->body       = NULL;
+    res->body = NULL;
     res->bodyLength = 0;
 
     return res;
@@ -167,6 +170,7 @@ HTTPResponse* ResponseHead(FileResult* fileResult) {
 
 // en fresult, me llega solo status code y location, si aplica, porque el body (body, contenttype (html), contentlenght), se genera acá porque es el html message
 HTTPResponse* ResponsePost(const HTTPRequest* req, FileResult* fileResult) {
+
     if (fileResult == NULL) return ResponseError(500);
 
     int statusCode = FileResultGetStatusCode(fileResult);
@@ -196,12 +200,15 @@ HTTPResponse* ResponsePost(const HTTPRequest* req, FileResult* fileResult) {
 
             if (written < 0 || written >= MAX_PATH_LEN) {
                 AddHeader(res, "Location", location);
+
             } else {
                 AddHeader(res, "Location", fullLocation);
             }
         } else {
             AddHeader(res, "Location", location);
+
         }
+
     }
 
     // body HTML
