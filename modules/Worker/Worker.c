@@ -147,12 +147,16 @@ void ConnectToBackendAndForward(WorkerArgs *workerArgs, ProxyMessage *message)
     // 5. Recibir la respuesta del backend
     // 6. Reenviar la respuesta al cliente original usando SendToClient(workerArgs->client, ...)
 
-
-    // TODO: Mandar el mensaje al backend seleccionado
     LoadBalancer *lb = workerArgs->lb;
     BackendNode backend = LoadBalancerSelectBackend(lb);
     IClientSocket *backendSocket = CreateClientSocket(backend.id.ip, backend.id.port, 5000);
     IncrementActiveConnections(lb, &backend);
+    if(SendHTTPRequest(backendSocket, message->request) < 0) {
+        fprintf(stderr, "Error al enviar la petición al backend\n");
+        DecrementActiveConnections(lb, &backend);
+        CloseClientSocket(backendSocket);
+        return;
+    }
     HTTPResponse response = ReadHTTPResponse(backendSocket);
     DecrementActiveConnections(lb, &backend);
     CloseClientSocket(backendSocket);
