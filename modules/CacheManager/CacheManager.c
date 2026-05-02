@@ -1,15 +1,12 @@
 #include "CacheManager.h"
 #include "CacheCleanWorker.h"
 #include "CacheStoreWorker.h"
+#include "CacheIO.h"
+#include "CacheIndex.h"
 
 #define CACHE_MAX_ENTRIES 1000
 
 #include "CacheUtils.h"
-
-bool CacheAddFromDisk(CacheManager *cache, const char *cacheKey, time_t timestamp);
-bool ExpireFileCache(CacheManager *cache, CacheEntry *entry, const char *cacheKey);
-static CacheEntry *CacheFindEntry(CacheManager *cache, const char *key);
-void CacheDestroy(CacheManager *cache);
 
 CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
 {
@@ -79,7 +76,7 @@ CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
     if (pthread_create(&cleanUpThread, NULL, CacheCleanupWorker, cacheManager) != 0)
     {
         fprintf(stderr, "cache_init: no se pudo crear hilo de limpieza: %s\n", strerror(errno));
-        CacheDestroy(cacheManager);
+        FreeCacheManager(cacheManager);
         return NULL;
     }
     pthread_detach(cleanUpThread); // Corre independientemente
@@ -125,59 +122,6 @@ bool cacheKeyFromRequest(const HTTPRequest *request, char *outKey, size_t outKey
     return true;
 }
 
-static bool CacheWriteMeta(FILE *file, CacheManager *cache, const char *rawKey, const HTTPResponse *response)
-{
-    const char *contentType = findHeader(&response->headers, "Content-Type");
-    if (!contentType)
-        contentType = "application/octet-stream";
-
-    if (fprintf(file,
-                "key=%s\n"
-                "timestamp=%ld\n"
-                "ttl=%d\n"
-                "status=%d\n"
-                "Content-Type=%s\n"
-                "Content-Length=%zu\n",
-                rawKey,
-                (long)time(NULL),
-                cache->ttl,
-                response->statusCode,
-                contentType,
-                response->bodyLength) < 0)
-    {
-        return false;
-    }
-
-    return true;
-}
-
-static bool CacheWriteExtraHeaders(FILE *file, const HTTPResponse *response)
-{
-    for (size_t i = 0; i < response->headers.count; i++)
-    {
-        const char *key = response->headers.headers[i].key;
-        const char *value = response->headers.headers[i].value;
-
-        if (strcasecmp(key, "Content-Type") == 0 ||
-            strcasecmp(key, "Content-Length") == 0)
-            continue;
-
-        if (fprintf(file, "%s=%s\n", key, value) < 0)
-            return false;
-    }
-
-    return true;
-}
-
-static bool CacheWriteBody(FILE *file, const HTTPResponse *response)
-{
-    if (response->bodyLength > 0 && response->body)
-    {
-        if (fwrite(response->body, 1, response->bodyLength, file) != response->bodyLength)
-            return false;
-    }
-    return true;
-}
 
 bool CacheStore(CacheManager *cache, const char *cacheKey, const char *rawKey, const HTTPResponse *response)
 {
@@ -197,25 +141,12 @@ bool CacheStore(CacheManager *cache, const char *cacheKey, const char *rawKey, c
         return false;
     }
 
-    // 🔹 Metadata
-    if (!CacheWriteMeta(file, cache, rawKey, response))
-        goto error;
-
-    // 🔹 Headers extra
-    if (!CacheWriteExtraHeaders(file, response))
-        goto error;
-
-    // 🔹 Separador
-    if (fputc('\n', file) == EOF)
-        goto error;
-
-    // 🔹 Body
-    if (!CacheWriteBody(file, response))
+    if (!CacheWriteFile(file, cache, rawKey, response))
         goto error;
 
     fclose(file);
+    file = NULL;
 
-    // 🔹 Índice RAM (reutiliza tu función)
     if (!CacheAddFromDisk(cache, cacheKey, time(NULL)))
     {
         fprintf(stderr, "cache_store: no se pudo agregar %s al indice en RAM\n", cacheKey);
@@ -227,62 +158,13 @@ bool CacheStore(CacheManager *cache, const char *cacheKey, const char *rawKey, c
 
 error:
     fprintf(stderr, "cache_store: error escribiendo archivo\n");
-    fclose(file);
-    remove(cachePath);
+    if (file != NULL)
+    {
+        fclose(file);
+        remove(cachePath);
+    }
     pthread_mutex_unlock(&cache->lock);
     return false;
-}
-
-static void cacheLoadFromDisk(CacheManager *cache)
-{
-    DIR *dir = opendir(cache->cacheDir);
-    if (!dir)
-    {
-        fprintf(stderr, "No se pudo abrir %s: %s\n",
-                cache->cacheDir, strerror(errno));
-        return;
-    }
-
-    struct dirent *entry;
-    while ((entry = readdir(dir)) != NULL)
-    {
-        // 1. Filtrar archivos de caché sin extensión
-        if (entry->d_name[0] == '.' || strchr(entry->d_name, '.') != NULL)
-            continue;
-
-        // 2. Path del archivo único
-        char cachePath[512];
-        BuildPath(cache, entry->d_name, "", cachePath, sizeof(cachePath));
-
-        // 3. Parsear metadata y validar que el rawKey corresponde al cacheKey
-        char storedRawKey[512] = {0};
-        time_t timestamp = 0;
-
-        if (!parseMetaFile(cachePath, storedRawKey, sizeof(storedRawKey), &timestamp))
-            continue;
-
-        char expectedCacheKey[33];
-        MD5Hash(storedRawKey, expectedCacheKey);
-
-        if (strcmp(expectedCacheKey, entry->d_name) != 0)
-        {
-            fprintf(stderr, "cacheLoadFromDisk: clave inconsistente en %s\n", entry->d_name);
-            continue;
-        }
-
-        // 4. Verificar que el archivo siga existiendo y tenga cuerpo
-        if (!cacheBodyExists(cache, entry->d_name))
-            continue;
-
-        // 5. Insertar en RAM
-        if (!CacheAddFromDisk(cache, entry->d_name, timestamp))
-        {
-            fprintf(stderr, "cacheLoadFromDisk: no se pudo agregar %s a RAM\n", entry->d_name);
-            continue;
-        }
-    }
-
-    closedir(dir);
 }
 
 bool CacheLookUp(CacheManager *cache, const char *cacheKey, HTTPResponse *response)
@@ -292,50 +174,37 @@ bool CacheLookUp(CacheManager *cache, const char *cacheKey, HTTPResponse *respon
 
     pthread_mutex_lock(&cache->lock);
 
-    // 1. Buscar
     CacheEntry *entry = CacheFindEntry(cache, cacheKey);
     if (!entry)
-    {
-        pthread_mutex_unlock(&cache->lock);
-        return false;
-    }
+        goto miss;
 
-    // 2. TTL
     if (!ExpireFileCache(cache, entry, cacheKey))
-    {
-        pthread_mutex_unlock(&cache->lock);
-        return false;
-    }
+        goto miss;
 
-    // 3. Meta
     CacheMeta meta;
     if (!CacheReadMeta(cache, cacheKey, &meta))
-    {
-        pthread_mutex_unlock(&cache->lock);
-        return false;
-    }
+        goto miss;
 
-    // 4. Body
     unsigned char *body = CacheReadBody(cache, cacheKey, meta.contentLength);
     if (!body)
-    {
-        pthread_mutex_unlock(&cache->lock);
-        return false;
-    }
+        goto miss;
 
-    // 5. Build response
     if (!BuildHTTPResponse(response, meta.statusCode, NULL, &meta.extraHeaders, body, meta.contentLength))
     {
         free(body);
-        pthread_mutex_unlock(&cache->lock);
-        return false;
+        goto miss;
     }
 
     pthread_mutex_unlock(&cache->lock);
     return true;
+
+miss:
+    pthread_mutex_unlock(&cache->lock);
+    return false;
 }
 
-void CacheStoreAsync(CacheManager *cacheManager, ProxyMessage *proxyMessage) {
+void CacheStoreAsync(CacheManager *cacheManager, ProxyMessage *proxyMessage)
+{
     char rawKey[512];
     snprintf(rawKey, sizeof(rawKey), "%s|%s|%s",
              MethodToString(proxyMessage->request->method),
@@ -343,26 +212,57 @@ void CacheStoreAsync(CacheManager *cacheManager, ProxyMessage *proxyMessage) {
              proxyMessage->request->path);
 
     CacheStoreArgs *storeArgs = malloc(sizeof(CacheStoreArgs));
-    if (storeArgs == NULL) return;
+    if (storeArgs == NULL)
+        return;
 
     storeArgs->cacheManager = cacheManager;
-    storeArgs->response     = proxyMessage->response;
+    storeArgs->response = proxyMessage->response;
     strncpy(storeArgs->cacheKey, proxyMessage->cacheKey, sizeof(storeArgs->cacheKey));
-    strncpy(storeArgs->rawKey,   rawKey,                 sizeof(storeArgs->rawKey));
+    strncpy(storeArgs->rawKey, rawKey, sizeof(storeArgs->rawKey));
 
     pthread_t storeThread;
-    if (pthread_create(&storeThread, NULL, CacheStoreWorker, storeArgs) != 0) {
+    if (pthread_create(&storeThread, NULL, CacheStoreWorker, storeArgs) != 0)
+    {
         free(storeArgs);
         return;
     }
     pthread_detach(storeThread);
 }
 
+
+void cacheInvalidate(CacheManager *cache, const char *cacheKey)
+{
+    pthread_mutex_lock(&cache->lock);
+
+    CacheEntry *entry = NULL;
+    HASH_FIND_STR(cache->table, cacheKey, entry);
+    if (entry != NULL)
+    {
+        // Borrar disco
+        char path[512];
+        BuildPath(cache, cacheKey, "cache", path, sizeof(path));
+        remove(path);
+
+        // Borrar RAM
+        HASH_DEL(cache->table, entry);
+        free(entry);
+        cache->entryCount--;
+    }
+
+    pthread_mutex_unlock(&cache->lock);
+}
+
+// Falta destruir el mutex correctamente
+// Actualmente llama pthread_mutex_destroy pero NO hace lock/unlock
+// Debería ser así:
+
 void FreeCacheManager(CacheManager *cacheManager)
 {
     if (cacheManager == NULL)
         return;
 
+    // No hace falta lock aquí porque es destrucción final,
+    // pero sí hay que asegurarse que nadie más lo usa antes de llamar esto
     pthread_mutex_destroy(&cacheManager->lock);
 
     if (cacheManager->table != NULL)
@@ -377,81 +277,4 @@ void FreeCacheManager(CacheManager *cacheManager)
 
     free(cacheManager->cacheDir);
     free(cacheManager);
-}
-
-static CacheEntry *CacheFindEntry(CacheManager *cache, const char *key)
-{
-    CacheEntry *entry = NULL;
-    HASH_FIND_STR(cache->table, key, entry);
-    return entry;
-}
-
-bool ExpireFileCache(CacheManager *cache, CacheEntry *entry, const char *cacheKey)
-{
-    if (difftime(time(NULL), entry->timestamp) > cache->ttl)
-    {
-        HASH_DEL(cache->table, entry);
-        free(entry);
-        cache->entryCount--;
-
-        char cachePath[512];
-        BuildPath(cache, cacheKey, "", cachePath, sizeof(cachePath));
-        remove(cachePath);
-
-        pthread_mutex_unlock(&cache->lock);
-        return false;
-    }
-
-    return true;
-}
-
-bool CacheAddFromDisk(CacheManager *cache, const char *cacheKey, time_t timestamp)
-{
-    if (cache == NULL || cacheKey == NULL || cacheKey[0] == '\0' || timestamp <= 0)
-        return false;
-
-    if (cache->entryCount >= CACHE_MAX_ENTRIES)
-        return false;
-
-    if (strlen(cacheKey) != 32)
-        return false;
-
-    CacheEntry *existing = NULL;
-    HASH_FIND_STR(cache->table, cacheKey, existing);
-    if (existing != NULL)
-        return false;
-
-    CacheEntry *entry = malloc(sizeof(CacheEntry));
-    if (!entry)
-        return false;
-
-    memset(entry, 0, sizeof(*entry));
-
-    strncpy(entry->key, cacheKey, sizeof(entry->key) - 1);
-    entry->key[sizeof(entry->key) - 1] = '\0';
-    entry->timestamp = timestamp;
-
-    HASH_ADD_STR(cache->table, key, entry);
-    cache->entryCount++;
-
-    return true;
-}
-
-void CacheDestroy(CacheManager *cache)
-{
-    if (cache == NULL)
-        return;
-
-    pthread_mutex_lock(&cache->lock);
-
-    CacheEntry *entry, *tmp;
-    HASH_ITER(hh, cache->table, entry, tmp)
-    {
-        HASH_DEL(cache->table, entry);
-        free(entry);
-    }
-
-    pthread_mutex_unlock(&cache->lock);
-    pthread_mutex_destroy(&cache->lock);
-    free(cache);
 }
