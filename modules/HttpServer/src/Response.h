@@ -5,7 +5,7 @@
 #include "../../../Includes/HttpUtils.h"
 #include "ResponseBody.h"
 #include "FileManager.h"
-#include "../../HttpParser/UriParser.h"
+//#include "../../HttpParser/UriParser.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h> 
@@ -15,6 +15,7 @@ HTTPResponse* ResponseHead(FileResult* fileResult);
 HTTPResponse* ResponsePost(const HTTPRequest* req, FileResult* fileResult);
 HTTPResponse* ResponseError(int statusCode);
 void AddHeader(HTTPResponse* res, const char* key, const char* value);
+HTTPResponse* ResponseErrorHead(int statusCode);
 void ResponseFree(HTTPResponse* response);
 
 #endif

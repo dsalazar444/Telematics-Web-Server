@@ -1,7 +1,6 @@
 #ifndef URIPARSER_H
 #define URIPARSER_H
 
-
 #include <ctype.h> 
 
 #define URI_MAX_LEN 2048
