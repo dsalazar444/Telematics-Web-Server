@@ -1,7 +1,7 @@
 #ifndef FILE_MANAGER_TYPES_H
 #define FILE_MANAGER_TYPES_H
 
-#define MAX_PATH_LEN 1024
+#define MAX_PATH_LEN 256
 #include <stddef.h>
 
 // definición real del opaque struct

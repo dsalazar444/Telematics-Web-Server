@@ -6,8 +6,12 @@
 #include <stdlib.h> // malloc(), free()
 #include <stdio.h>  // perror()
 #include <string.h>
+#include <fcntl.h>
 
 #include "../../Includes/ISocket.h"
+#include "Socket.h"
+#include <errno.h>
+#include <sys/select.h>
 
 int SetIPv6Only(int fd, int enable)
 {
@@ -78,6 +82,172 @@ int ListenSocket(ISocketListener *self, int backlog)
     return 0;
 }
 
+void CloseListenerSocket(ISocketListener *listener)
+{
+    if (listener == NULL)
+    {
+        return;
+    }
+
+    close(listener->fd);
+}
+
+IClientSocket *CreateClientSocket(const char *host, int port, int timeout_ms)
+{
+    // PASO 1: Crear socket IPv4 TCP
+    int socketFD = socket(AF_INET, SOCK_STREAM, 0);
+    if (socketFD < 0)
+    {
+        perror("socket");
+        return NULL;
+    }
+
+    // PASO 2: Reservar estructura IClientSocket en heap
+    IClientSocket *clientSocket = malloc(sizeof(IClientSocket));
+    if (clientSocket == NULL)
+    {
+        close(socketFD);
+        return NULL;
+    }
+    clientSocket->fd = socketFD;
+
+    // PASO 3: Poner socket en modo NO-BLOQUEANTE
+    // (así el connect no se queda esperando indefinidamente)
+    if (SetClientNonBlocking(clientSocket, 1) < 0)
+    {
+        CloseClientSocket(clientSocket);
+        return NULL;
+    }
+
+    // PASO 4: Preparar dirección del servidor remoto
+    struct sockaddr_in serverAddr;
+    memset(&serverAddr, 0, sizeof(serverAddr));
+    serverAddr.sin_family = AF_INET;   // IPv4
+    serverAddr.sin_port = htons(port); // puerto convertido a network byte order
+
+    // Convertir string IP (ej: "192.168.1.10") a formato binario
+    if (inet_pton(AF_INET, host, &serverAddr.sin_addr) <= 0)
+    {
+        perror("inet_pton - no se pudo parsenar la IP");
+        CloseClientSocket(clientSocket);
+        return NULL;
+    }
+
+    // PASO 4b: Intentar connect
+    int connectResult = connect(clientSocket->fd, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+
+    // Hay dos casos de error con EINPROGRESS:
+    // - connectResult == 0: conectó inmediatamente
+    // - connectResult < 0 pero errno == EINPROGRESS: conexión en progreso, hay que esperar
+    if (connectResult < 0 && errno != EINPROGRESS)
+    {
+        perror("connect - error fatal");
+        CloseClientSocket(clientSocket);
+        return NULL;
+    }
+
+    // PASO 5: Si el connect está "en progreso", esperar con timeout
+    if (connectResult < 0)
+    {
+        // Crear conjunto de file descriptors para monitorear
+        fd_set writeableSockets;
+        FD_ZERO(&writeableSockets);                  // limpiar el conjunto
+        FD_SET(clientSocket->fd, &writeableSockets); // agregar nuestro socket
+
+        // Convertir timeout de ms a segundos + microsegundos
+        struct timeval timeout;
+        timeout.tv_sec = timeout_ms / 1000;           // segundos
+        timeout.tv_usec = (timeout_ms % 1000) * 1000; // microsegundos restantes
+
+        // Bucle para reintentar si select() es interrumpido por una señal (EINTR)
+        // Esto es importante en entornos multihilo: otras señales pueden despertar select()
+        // sin que el socket esté listo; el POSIX estándar dice que debemos reintentar.
+        int selectResult = -1;
+        while (selectResult < 0)
+        {
+            // select() espera a que el socket sea escribible O se agote el timeout
+            // - NULL para read set (no nos importa si puede leer)
+            // - &writeableSockets para write set (nos importa estar listo para escribir)
+            // - &timeout para el máximo tiempo a esperar
+            selectResult = select(clientSocket->fd + 1, NULL, &writeableSockets, NULL, &timeout);
+
+            // Si select retorna -1, verificar si es por una señal (EINTR)
+            if (selectResult < 0)
+            {
+                if (errno == EINTR)
+                {
+                    // EINTR: select() fue interrumpido por una señal
+                    // Solución: reintentar el loop (el timeout se ha actualizado automáticamente)
+                    fprintf(stderr, "select() interrumpido por señal, reintentando...\n");
+                    continue; // volver a intentar
+                }
+                else
+                {
+                    // Otro error (EBADF, ENOMEM, etc): es un error fatal
+                    perror("select - error fatal al esperar conexión");
+                    CloseClientSocket(clientSocket);
+                    return NULL;
+                }
+            }
+
+            // Si selectResult == 0, ha habido timeout
+            if (selectResult == 0)
+            {
+                fprintf(stderr, "Connect timeout - no se conectó a %s:%d en %d ms\n",
+                        host, port, timeout_ms);
+                CloseClientSocket(clientSocket);
+                return NULL;
+            }
+
+            // selectResult > 0: algún descriptor está listo, salir del loop
+            break;
+        }
+
+        // PASO 6: El socket debe estar listo; verificar que está en writeableSockets
+        // (select() puede indicar que algo está listo, pero no necesariamente nuestro socket)
+        if (!FD_ISSET(clientSocket->fd, &writeableSockets))
+        {
+            // El descriptor no está en el conjunto "escribible"
+            fprintf(stderr, "Socket no está listo para escribir (select inconsistencia)\n");
+            CloseClientSocket(clientSocket);
+            return NULL;
+        }
+
+        // PASO 6b: Verificar si la conexión fue exitosa
+        // Aunque select() diga que el socket está "listo", la conexión pudo haber fallado
+        // Por eso usamos getsockopt para obtener el error real del socket
+        int connectError = 0;
+        socklen_t errorLength = sizeof(connectError);
+
+        if (getsockopt(clientSocket->fd, SOL_SOCKET, SO_ERROR, &connectError, &errorLength) < 0)
+        {
+            perror("getsockopt - no se pudo verificar estado de conexión");
+            CloseClientSocket(clientSocket);
+            return NULL;
+        }
+
+        // Si connectError != 0, la conexión falló
+        if (connectError != 0)
+        {
+            errno = connectError;
+            perror("connect - falló conexión remota");
+            CloseClientSocket(clientSocket);
+            return NULL;
+        }
+    }
+
+    // PASO 7: Restaurar socket a modo BLOQUEANTE
+    // (ahora queremos que los sockets se bloqueen normalmente en send/recv)
+    if (SetClientNonBlocking(clientSocket, 0) < 0)
+    {
+        perror("SetClientNonBlocking - aviso: no se pudo restaurar a bloqueante");
+        // No retornar NULL aquí porque la conexión está OK, solo es una advertencia
+    }
+
+    // Conexión exitosa, devolver socket listo para enviar/recibir
+    return clientSocket;
+}
+
 IClientSocket *AcceptSocket(ISocketListener *self)
 {
     // Crea la estructura necesaria para guardar la informacion del cliente que se va a conectar, y un entero con el tamaño de esta estructura
@@ -94,6 +264,11 @@ IClientSocket *AcceptSocket(ISocketListener *self)
 
     // Crea un nuevo IClientSocket para el cliente conectado
     IClientSocket *client = malloc(sizeof(IClientSocket));
+    if (client == NULL)
+    {
+        close(clientFd);
+        return NULL;
+    }
     client->fd = clientFd;
 
     return client;
@@ -125,4 +300,191 @@ void CloseClientSocket(IClientSocket *client)
 {
     close(client->fd);
     free(client);
+}
+
+int SetClientNonBlocking(IClientSocket *client, int enable)
+{
+    if (client == NULL)
+    {
+        fprintf(stderr, "SetClientNonBlocking: client es NULL\n");
+        return -1;
+    }
+
+    int flags = fcntl(client->fd, F_GETFL, 0);
+    if (flags < 0)
+    {
+        perror("fcntl(F_GETFL)");
+        return -1;
+    }
+
+    if (enable)
+    {
+        flags |= O_NONBLOCK;
+    }
+    else
+    {
+        flags &= ~O_NONBLOCK;
+    }
+
+    if (fcntl(client->fd, F_SETFL, flags) < 0)
+    {
+        perror("fcntl(F_SETFL)");
+        return -1;
+    }
+
+    return 0;
+}
+
+int SendHTTPRequest(IClientSocket *socket, const HTTPRequest *request)
+{
+    if (socket == NULL || request == NULL)
+    {
+        fprintf(stderr, "SendHTTPRequest: socket o request es NULL\n");
+        return -1;
+    }
+
+    // Convertir HTTPMethod enum a string
+    const char *methodStr = "GET"; // default
+    switch (request->method)
+    {
+    case GET:
+        methodStr = "GET";
+        break;
+    case POST:
+        methodStr = "POST";
+        break;
+    case PUT:
+        methodStr = "PUT";
+        break;
+    case DELETE:
+        methodStr = "DELETE";
+        break;
+    case HEAD:
+        methodStr = "HEAD";
+        break;
+    case OPTIONS:
+        methodStr = "OPTIONS";
+        break;
+    case CONNECT:
+        methodStr = "CONNECT";
+        break;
+    case TRACE:
+        methodStr = "TRACE";
+        break;
+    default:
+        fprintf(stderr, "SendHTTPRequest: HTTPMethod desconocido (%d)\n", request->method);
+        return -1;
+    }
+
+    // Buffer para construir la petición HTTP
+    char httpBuffer[8192];
+    size_t offset = 0;
+
+    // PASO 1: Construir línea de petición: "METHOD /path HTTP/version\r\n"
+    offset += snprintf(httpBuffer + offset, sizeof(httpBuffer) - offset,
+                       "%s %s %s\r\n",
+                       methodStr, request->path, request->version);
+
+    if (offset >= sizeof(httpBuffer))
+    {
+        fprintf(stderr, "SendHTTPRequest: buffer insuficiente para línea inicial\n");
+        return -1;
+    }
+
+    // PASO 2: Añadir headers
+    // Recorrer cada header en la estructura HTTPHeaders
+    for (size_t i = 0; i < request->headers.count; i++)
+    {
+        // Verificar que no nos salimos del buffer
+        if (offset + 512 >= sizeof(httpBuffer))
+        {
+            fprintf(stderr, "SendHTTPRequest: buffer insuficiente para headers\n");
+            return -1;
+        }
+
+        // Añadir: "Key: Value\r\n"
+        offset += snprintf(httpBuffer + offset, sizeof(httpBuffer) - offset,
+                           "%s: %s\r\n",
+                           request->headers.headers[i].key,
+                           request->headers.headers[i].value);
+    }
+
+    // PASO 3: Añadir línea separadora vacía: "\r\n"
+    // Esto marca el fin de headers y el inicio del body (si lo hay)
+    offset += snprintf(httpBuffer + offset, sizeof(httpBuffer) - offset, "\r\n");
+
+    // PASO 4: Enviar headers
+    // Usar SendToClient que maneja errores perror()
+    if (SendToClient(socket, httpBuffer, (int)offset) < 0)
+    {
+        fprintf(stderr, "SendHTTPRequest: fallo al enviar headers\n");
+        return -1;
+    }
+
+    // PASO 5: Si hay body, enviarlo
+    // El body es binario, así que se envía tal cual sin procesamiento
+    if (request->body != NULL && request->bodyLength > 0)
+    {
+        if (SendToClient(socket, (const char *)request->body, (int)request->bodyLength) < 0)
+        {
+            fprintf(stderr, "SendHTTPRequest: fallo al enviar body\n");
+            return -1;
+        }
+    }
+
+    // Todo enviado correctamente
+    return 0;
+}
+
+HTTPResponse ReadHTTPResponse(IClientSocket *backend, IClientSocket *client)
+{
+    HTTPResponse response = {0};
+    if (backend == NULL || client == NULL)
+    {
+        fprintf(stderr, "ReadHTTPResponse: backend o client es NULL\n");
+        return response;
+    }
+
+    char buffer[8192];
+    while (1)
+    {
+        int n = RecvFromClient(backend, buffer, sizeof(buffer));
+        if (n < 0)
+        {
+            // error en recv
+            return response;
+        }
+        if (n == 0)
+        {
+            // EOF: backend cerró la conexión
+            break;
+        }
+
+        // Reenviar todo el buffer al cliente, manejando envíos parciales
+        int remaining = n;
+        char *ptr = buffer;
+        while (remaining > 0)
+        {
+            ssize_t written = send(client->fd, ptr, remaining, 0);
+            if (written < 0)
+            {
+                if (errno == EINTR)
+                {
+                    continue; // reintentar
+                }
+                if (errno == EAGAIN || errno == EWOULDBLOCK)
+                {
+                    // En modo bloqueante esto no debería pasar; pero si pasa, small sleep y retry
+                    usleep(1000);
+                    continue;
+                }
+                perror("ReadHTTPResponse: send");
+                return response;
+            }
+            remaining -= (int)written;
+            ptr += written;
+        }
+    }
+
+    return response;
 }

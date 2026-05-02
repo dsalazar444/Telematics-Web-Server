@@ -2,16 +2,19 @@
 #include "FileManagerTypes.h"
 #include "FileManagerUtils.h"
 #include "FileManager.h"
-#include <stdio.h>    // para fopen, fread, fwrite, fclose
-#include <sys/stat.h> // para stat(), S_ISDIR(), S_ISREG()
-#include <string.h>   // para strlen, strrchr, strncpy, snprintf
-#include <stdlib.h>   // para malloc, free
+#include <stdio.h>
+#include <sys/stat.h>
+#include <string.h>
+#include <stdlib.h>
+// Heredados desde FileManagerIO.h (sys/stat.h, stddef.h)
+
 // FUNCIÓN: funciones que abren, leen y escriben archivos:
 
+// Verifica si url es una carpeta, si sí, busca si tiene index.html, y actualiza realPath si corresponde
 // retorna 1 si es directorio y encontró index.html
 // retorna 0 si no es directorio (no hace nada)
 // retorna -1 si es directorio pero no hay index.html
-// Verifica si url es una carpeta, si sí, busca si tiene index.html, y actualiza realPath si corresponde
+// retorna -2 si uri too long
 // outsat es el stat() de un archivo o dir, que contiene info básica de él, dado por el OS
 int HandleDirectory(char* realPath, struct stat* outStat) {
     // ¿es un directorio?
@@ -21,10 +24,18 @@ int HandleDirectory(char* realPath, struct stat* outStat) {
     char indexPath[MAX_PATH_LEN];
     int  pathLen = strlen(realPath);
 
+    // Construir la ruta con index
+    int written;
     if (realPath[pathLen - 1] == '/') {
-        snprintf(indexPath, MAX_PATH_LEN, "%sindex.html", realPath);
+        written = snprintf(indexPath, MAX_PATH_LEN, "%sindex.html", realPath); // concatenamos real path con index.html, y guardamos en indexPath
     } else {
-        snprintf(indexPath, MAX_PATH_LEN, "%s/index.html", realPath);
+        written = snprintf(indexPath, MAX_PATH_LEN, "%s/index.html", realPath);
+    }
+
+    // Verificar si fue truncada
+    if (written < 0 || written >= MAX_PATH_LEN) {
+        return -2; // Ruta demasiado larga
+        // no se daña realPath porque se "copio" nueva ruta en indexPath, que no ha sido asignada a realPath
     }
 
     // stat() del index.html → sobreescribe outStat
@@ -43,7 +54,7 @@ int GetFileMetadata(const char* absPath, char* outRealPath, struct stat* outStat
     // 1. construir ruta real
     char realPath[MAX_PATH_LEN];
     if (!BuildRealPath(absPath, realPath)) { // 1 exit, 0 -> ruta muy larga
-        result->_statusCode = 414; //al crear ruta completa pasada por client, esta es muy larga -> culpa de client
+        result->_statusCode = 414; //al formar ruta completa pasada por client, esta es muy larga -> culpa de client
         return 0;
     }
 
@@ -54,10 +65,13 @@ int GetFileMetadata(const char* absPath, char* outRealPath, struct stat* outStat
         return 0;
     }
 
-    // 3. manejar directorio — puede modificar realPath y pathStat (1 si index, 0 si ~dir, -1 si no index)
+    // 3. manejar directorio — puede modificar realPath y pathStat (1 si index, 0 si ~dir, -1 si no index, -2 si uri too long)
     int dirResult = HandleDirectory(realPath, &pathStat);
     if (dirResult == -1) {
         result->_statusCode = 404; // Dir no tenia index.html -> not found
+        return 0;
+    } else if (dirResult == -2){
+        result->_statusCode = 414; // uri too long
         return 0;
     }
 
@@ -69,7 +83,7 @@ int GetFileMetadata(const char* absPath, char* outRealPath, struct stat* outStat
 
     // si llega hasta acá, y era una ruta de dir, ya estamos trabajando con el index de esa dir
     // 5. Metadata
-    GetMimeTypeByExtension(realPath, result->_mimeType);
+    GetMimeTypeByExtension(realPath, result->_mimeType); // porque retornaré recurso solicitado, no html message
     GetLastModified(&pathStat, result->_lastModified);
 
     return 1;
@@ -100,6 +114,7 @@ int ReadFile(const char* realPath, const struct stat* pathStat, FileResult* resu
     if (bytesRead != fileSize) {
         free(result->_content);
         result->_content = NULL;
+        // contentLen es por default 0, por eso no se pone
         return 0;
     }
 

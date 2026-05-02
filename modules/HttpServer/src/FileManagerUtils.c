@@ -1,11 +1,12 @@
 #define _POSIX_C_SOURCE 200112L // para clock_Realtime
+
 #include "FileManagerUtils.h"
-#include <sys/stat.h>  // para stat()
-#include <stdio.h>     // para NULL
-#include <string.h>    // para strlen, strncpy, strncat, strrchr, strcasecmp
-#include <strings.h> // para strcasecmp
-#include <time.h>      // para gmtime, strftime
-#include <stdlib.h>    // para rand()
+#include <sys/stat.h>
+#include <stdio.h>
+#include <string.h>
+#include <strings.h>
+#include <time.h>
+#include <stdlib.h>
 
 // FUNCIÓN: funciones que trabajan con strings y metadata, no tocan contenido del archivo
 // _documentRoot es local a este módulo (static)
@@ -78,13 +79,11 @@ void GetMimeTypeByExtension(const char* path, char* outMime) {
 int GenerateFileName(const char* contentType, char* outFileName) {
     const char* ext = ".bin";  // default
 
-    // generamos extensión
-    if (contentType != NULL) {
-        for (int i = 0; MIME_TABLE[i].mimeType != NULL; i++) {
-            if (strcasecmp(contentType, MIME_TABLE[i].mimeType) == 0) {
-                ext = MIME_TABLE[i].extension;
-                break;
-            }
+    // generamos extensión (basado en contenttype, no en uri)
+    for (int i = 0; MIME_TABLE[i].mimeType != NULL; i++) {
+        if (strcasecmp(contentType, MIME_TABLE[i].mimeType) == 0) {
+            ext = MIME_TABLE[i].extension;
+            break;
         }
     }
 
