@@ -8,9 +8,8 @@
 void *worker(void *arg)
 {
     WorkerArgs *workerArgs = (WorkerArgs *)arg;
-
-    IClientSocket *client = workerArgs->client;
-    LoadBalancer *lb = workerArgs->lb;
+    IClientSocket *client  = workerArgs->client;
+    LoadBalancer *lb       = workerArgs->lb;
     CacheManager *cacheManager = workerArgs->cacheManager;
 
     char buffer[4096];
@@ -19,10 +18,10 @@ void *worker(void *arg)
 
     while (1)
     {
+        // 1. Recibir datos del cliente
         memset(buffer, 0, sizeof(buffer));
         int bytes = RecvFromClient(client, buffer, sizeof(buffer));
-        if (bytes <= 0)
-            break;
+        if (bytes <= 0) break;
 
         if (requestLen + bytes >= sizeof(requestBuffer))
         {
@@ -33,13 +32,11 @@ void *worker(void *arg)
         requestLen += bytes;
         requestBuffer[requestLen] = '\0';
 
-        int headerSize = 0;
+        // 2. Verificar tamaños
+        int headerSize    = 0;
         int contentLength = 0;
         int requestInfoStatus = GetRequestSizes(requestBuffer, &headerSize, &contentLength);
-        if (requestInfoStatus == 0)
-        {
-            continue;
-        }
+        if (requestInfoStatus == 0) continue;
 
         if (requestInfoStatus < 0)
         {
@@ -48,22 +45,16 @@ void *worker(void *arg)
             break;
         }
 
-        int expectedSize = headerSize + contentLength;
-        if (requestLen < expectedSize)
-        {
-            continue;
-        }
+        if (requestLen < headerSize + contentLength) continue;
 
-        // Ya tenemos la petición completa (headers)
+        // 3. Parsear el request
         unsigned short statusCode = 0;
         HTTPRequest *request = ParseHTTPRequest(requestBuffer, headerSize, contentLength, &statusCode);
         if (request == NULL || statusCode != 0)
         {
-            // Construir respuesta usando ResponseError (centraliza headers y body)
             HTTPResponse *response = ResponseError((int)statusCode);
             if (response != NULL)
             {
-                // enviar usando helper reutilizable
                 SendHTTPResponse(client, response);
                 ResponseFree(response);
             }
@@ -72,8 +63,6 @@ void *worker(void *arg)
                 const char *fallback = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 21\r\nConnection: close\r\n\r\nInternal Server Error";
                 SendToClient(client, fallback, strlen(fallback));
             }
-
-            // Limpiar buffer tras error y continuar (no cerramos la conexión)
             requestLen = 0;
             memset(requestBuffer, 0, sizeof(requestBuffer));
             continue;
@@ -81,30 +70,33 @@ void *worker(void *arg)
 
         PrintHttpRequest(request);
 
-        // Allocate proxy message on heap so it can be handed off to other components
+        // 4. Allocar ProxyMessage
         ProxyMessage *proxyMessage = malloc(sizeof(*proxyMessage));
         if (proxyMessage == NULL)
         {
-            // Allocation failed: fallback to immediate forwarding and free request
             ConnectToBackendAndForward(workerArgs, NULL);
             free(request->body);
             free(request);
+            requestLen = 0;
+            memset(requestBuffer, 0, sizeof(requestBuffer));
+            continue;
         }
-        else
-        {
-            memset(proxyMessage, 0, sizeof(*proxyMessage));
-            proxyMessage->request = request; // point to parsed request (no copy)
-            proxyMessage->shouldCache = false;
-            proxyMessage->shouldReplicate = (request->method == POST);
 
-            if (cacheManager && cacheKeyFromRequest(request, proxyMessage->cacheKey, sizeof(proxyMessage->cacheKey)))
-            {
-                proxyMessage->shouldCache = true;
-            }
+        memset(proxyMessage, 0, sizeof(*proxyMessage));
+        proxyMessage->request         = request;
+        proxyMessage->shouldCache     = false;
+        proxyMessage->shouldReplicate = false;
+
+        // 5. Verificar si es cacheable y buscar en caché
+        if (cacheManager != NULL &&
+            cacheKeyFromRequest(request, proxyMessage->cacheKey, sizeof(proxyMessage->cacheKey)))
+        {
+            proxyMessage->shouldCache = true;
 
             HTTPResponse cachedResponse = {0};
             if (CacheLookUp(cacheManager, proxyMessage->cacheKey, &cachedResponse))
             {
+                // HIT — enviar al cliente directo
                 SendHTTPResponse(client, &cachedResponse);
                 free(cachedResponse.body);
                 free(proxyMessage);
@@ -114,24 +106,36 @@ void *worker(void *arg)
                 memset(requestBuffer, 0, sizeof(requestBuffer));
                 continue;
             }
-            else
-            {
-                // Transfer ownership to ConnectToBackendAndForward (it must free message/request when done)
-                ConnectToBackendAndForward(workerArgs, proxyMessage);
-                SendHTTPResponse(client, &proxyMessage->response);
-                if (proxyMessage->shouldCache && proxyMessage->response.statusCode == 200) {
-                    CacheStoreAsync(cacheManager, proxyMessage);
-                }
-                
-            }
         }
 
-        // Limpiar buffer para la siguiente petición
+        // 6. MISS — ir al backend
+        ConnectToBackendAndForward(workerArgs, proxyMessage);
+
+        // 7. Enviar respuesta al cliente
+        SendHTTPResponse(client, &proxyMessage->response);
+
+        // 8. Invalidar caché si es POST exitoso
+        if (request->method == POST && proxyMessage->response.statusCode == 200)
+        {
+            CacheInvalidateByRequest(cacheManager, request);
+        }
+
+        // 9. Cachear en background si aplica
+        if (proxyMessage->shouldCache && proxyMessage->response.statusCode == 200)
+        {
+            CacheStoreAsync(cacheManager, proxyMessage);
+        }
+
+        // 10. Liberar
+        free(proxyMessage->response.body);
+        free(proxyMessage);
+        free(request->body);
+        free(request);
         requestLen = 0;
         memset(requestBuffer, 0, sizeof(requestBuffer));
     }
 
-    // 4. Cerrar y liberar
+    // 11. Cerrar conexión
     CloseClientSocket(client);
     return NULL;
 }
