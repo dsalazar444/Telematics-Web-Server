@@ -27,10 +27,6 @@ void *replicatorWorker(void *arg)
 	LoadBalancer *lb = args->lb;
 	int timeout = args->timeout_ms > 0 ? args->timeout_ms : 3000;
 
-	char host[64];
-	snprintf(host, sizeof(host), "%u.%u.%u.%u",
-			 target.id.ip[0], target.id.ip[1], target.id.ip[2], target.id.ip[3]);
-
 	int attempts = 0;
 	int success = 0;
 
@@ -38,7 +34,7 @@ void *replicatorWorker(void *arg)
 	{
 		attempts++;
 
-		IClientSocket *backendSock = CreateClientSocket(host, target.id.port, timeout);
+		IClientSocket *backendSock = CreateClientSocket(target.id.ip, target.id.port, timeout);
 		if (backendSock == NULL)
 		{
 			// Could not connect, try again

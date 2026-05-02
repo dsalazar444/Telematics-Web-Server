@@ -93,7 +93,7 @@ void CloseListenerSocket(ISocketListener *listener)
     close(listener->fd);
 }
 
-IClientSocket *CreateClientSocket(const char *host, int port, int timeout_ms)
+IClientSocket *CreateClientSocket(const uint8_t ip[4], int port, int timeout_ms)
 {
     // PASO 1: Crear socket IPv4 TCP
     int socketFD = socket(AF_INET, SOCK_STREAM, 0);
@@ -126,13 +126,17 @@ IClientSocket *CreateClientSocket(const char *host, int port, int timeout_ms)
     serverAddr.sin_family = AF_INET;   // IPv4
     serverAddr.sin_port = htons(port); // puerto convertido a network byte order
 
-    // Convertir string IP (ej: "192.168.1.10") a formato binario
-    if (inet_pton(AF_INET, host, &serverAddr.sin_addr) <= 0)
+    if (ip == NULL)
     {
-        perror("inet_pton - no se pudo parsenar la IP");
+        fprintf(stderr, "CreateClientSocket: ip es NULL\n");
         CloseClientSocket(clientSocket);
         return NULL;
     }
+
+    memcpy(&serverAddr.sin_addr, ip, sizeof(serverAddr.sin_addr));
+
+    // char ipString[INET_ADDRSTRLEN];
+    // if (inet_ntop(AF_INET, &serverAddr.sin_addr, ipString, sizeof(ipString)) == NULL) { ... }
 
     // PASO 4b: Intentar connect
     int connectResult = connect(clientSocket->fd, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
@@ -194,8 +198,8 @@ IClientSocket *CreateClientSocket(const char *host, int port, int timeout_ms)
             // Si selectResult == 0, ha habido timeout
             if (selectResult == 0)
             {
-                fprintf(stderr, "Connect timeout - no se conectó a %s:%d en %d ms\n",
-                        host, port, timeout_ms);
+                fprintf(stderr, "Connect timeout - no se conectó al backend %u.%u.%u.%u:%d en %d ms\n",
+                    ip[0], ip[1], ip[2], ip[3], port, timeout_ms);
                 CloseClientSocket(clientSocket);
                 return NULL;
             }

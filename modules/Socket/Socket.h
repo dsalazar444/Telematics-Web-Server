@@ -7,7 +7,7 @@
 int CreateDualStackSocket();
 int BindSocket(ISocketListener *self, const char *host, int port);
 int ListenSocket(ISocketListener *self, int backlog);
-IClientSocket* CreateClientSocket(const char *host, int port, int timeout_ms);
+IClientSocket* CreateClientSocket(const uint8_t ip[4], int port, int timeout_ms);
 IClientSocket* AcceptSocket(ISocketListener *self);
 void CloseListenerSocket(ISocketListener *listener);
 

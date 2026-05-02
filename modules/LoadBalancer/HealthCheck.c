@@ -1,28 +1,11 @@
 #include "HealthCheck.h"
 #include "../Socket/Socket.h"
-#include <arpa/inet.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define HEALTH_CHECK_INTERVAL 5
-
-static bool BackendIPToString(const IDBackendNode id, char *buffer, size_t bufferSize)
-{
-    if (buffer == NULL || bufferSize == 0)
-    {
-        return false;
-    }
-
-    if (inet_ntop(AF_INET, id.ip, buffer, (socklen_t)bufferSize) == NULL)
-    {
-        perror("inet_ntop");
-        return false;
-    }
-
-    return true;
-}
 
 void *HealthCheckLoop(void *arg)
 {
@@ -59,13 +42,12 @@ void *HealthCheckLoop(void *arg)
 
 bool HealthCheckBackend(IDBackendNode id)
 {
-    char ipString[INET_ADDRSTRLEN];
-    if (!BackendIPToString(id, ipString, sizeof(ipString)))
+    if (id.port == 0)
     {
         return false;
     }
 
-    IClientSocket *socket = CreateClientSocket(ipString, id.port, 2000);
+    IClientSocket *socket = CreateClientSocket(id.ip, id.port, 2000);
     if (socket == NULL)
     {
         return false;
@@ -78,7 +60,8 @@ bool HealthCheckBackend(IDBackendNode id)
     snprintf(request.version, sizeof(request.version), "%s", "HTTP/1.1");
     request.headers.count = 1;
     snprintf(request.headers.headers[0].key, sizeof(request.headers.headers[0].key), "%s", "Host");
-    snprintf(request.headers.headers[0].value, sizeof(request.headers.headers[0].value), "%s", ipString);
+    snprintf(request.headers.headers[0].value, sizeof(request.headers.headers[0].value), "%u.%u.%u.%u",
+             id.ip[0], id.ip[1], id.ip[2], id.ip[3]);
 
     bool healthy = false;
     if (SendHTTPRequest(socket, &request) == 0)

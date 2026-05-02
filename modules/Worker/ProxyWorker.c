@@ -6,13 +6,11 @@
 #include "../../modules/Logs/Log.h"
 #include "../../Includes/HttpUtils.h"
 
-
-
 void *worker(void *arg)
 {
     WorkerArgs *workerArgs = (WorkerArgs *)arg;
-    IClientSocket *client  = workerArgs->client;
-    LoadBalancer *lb       = workerArgs->lb;
+    IClientSocket *client = workerArgs->client;
+    LoadBalancer *lb = workerArgs->lb;
     CacheManager *cacheManager = workerArgs->cacheManager;
 
     char buffer[4096];
@@ -24,7 +22,8 @@ void *worker(void *arg)
         // 1. Recibir datos del cliente
         memset(buffer, 0, sizeof(buffer));
         int bytes = RecvFromClient(client, buffer, sizeof(buffer));
-        if (bytes <= 0) break;
+        if (bytes <= 0)
+            break;
 
         if (requestLen + bytes >= sizeof(requestBuffer))
         {
@@ -36,10 +35,11 @@ void *worker(void *arg)
         requestBuffer[requestLen] = '\0';
 
         // 2. Verificar tamaños
-        int headerSize    = 0;
+        int headerSize = 0;
         int contentLength = 0;
         int requestInfoStatus = GetRequestSizes(requestBuffer, &headerSize, &contentLength);
-        if (requestInfoStatus == 0) continue;
+        if (requestInfoStatus == 0)
+            continue;
 
         if (requestInfoStatus < 0)
         {
@@ -49,8 +49,9 @@ void *worker(void *arg)
         }
 
         int expectedSize = headerSize + contentLength;
-        if (requestLen < expectedSize) continue;
-        
+        if (requestLen < expectedSize)
+            continue;
+
         // 3. Parsear el request
         unsigned short statusCode = 0;
         HTTPRequest *request = ParseHTTPRequest(requestBuffer, headerSize, contentLength, &statusCode);
@@ -89,8 +90,8 @@ void *worker(void *arg)
         }
 
         memset(proxyMessage, 0, sizeof(*proxyMessage));
-        proxyMessage->request         = request;
-        proxyMessage->shouldCache     = false;
+        proxyMessage->request = request;
+        proxyMessage->shouldCache = false;
         proxyMessage->shouldReplicate = (request->method == POST);
 
         // 5. Verificar si es cacheable y buscar en caché
@@ -178,7 +179,8 @@ void ConnectToBackendAndForward(WorkerArgs *workerArgs, ProxyMessage *message)
     }
 
     IncrementActiveConnections(lb, &backend);
-    if(SendHTTPRequest(backendSocket, message->request) < 0) {
+    if (SendHTTPRequest(backendSocket, message->request) < 0)
+    {
         fprintf(stderr, "Error al enviar la petición al backend\n");
         DecrementActiveConnections(lb, &backend);
         CloseClientSocket(backendSocket);
@@ -197,13 +199,14 @@ void ConnectToBackendAndForward(WorkerArgs *workerArgs, ProxyMessage *message)
 
     message->response = response;
 
-
-    if (response.statusCode != 200) {
+    if (response.statusCode != 200)
+    {
         message->shouldCache = false;
         message->shouldReplicate = false;
     }
 
-    if (message->shouldReplicate) {
+    if (message->shouldReplicate)
+    {
         ReplicatorReplicate(message->request, lb, &backend);
     }
 }
