@@ -12,6 +12,7 @@
 #include "Socket.h"
 #include <errno.h>
 #include <sys/select.h>
+#include "../HttpParser/HttpResponseParser.h"
 
 int SetIPv6Only(int fd, int enable)
 {
@@ -436,14 +437,187 @@ int SendHTTPRequest(IClientSocket *socket, const HTTPRequest *request)
     return 0;
 }
 
-HTTPResponse ReadHTTPResponse(IClientSocket *backend, IClientSocket *client)
+// Helper: buscar "\r\n\r\n" en un buffer
+static char *FindHeadersEnd(const char *buffer, size_t len)
+{
+    for (size_t i = 0; i + 3 < len; i++)
+    {
+        if (buffer[i] == '\r' && buffer[i + 1] == '\n' &&
+            buffer[i + 2] == '\r' && buffer[i + 3] == '\n')
+        {
+            return (char *)(buffer + i);
+        }
+    }
+    return NULL;
+}
+
+static void TrimSpaces(const char **start, const char **end)
+{
+    while (*start < *end && (**start == ' ' || **start == '\t'))
+    {
+        (*start)++;
+    }
+
+    while (*end > *start && ((*(*end - 1) == ' ') || (*(*end - 1) == '\t')))
+    {
+        (*end)--;
+    }
+}
+
+// TODO: revisar esta función
+static int ParseResponseHead(const char *buffer,
+                             size_t headerLen,
+                             int *statusCode,
+                             char *statusMessage,
+                             size_t statusMessageSize,
+                             HTTPHeaders *headers)
+{
+    if (buffer == NULL || statusCode == NULL || statusMessage == NULL || headers == NULL)
+    {
+        return -1;
+    }
+
+    headers->count = 0;
+    statusMessage[0] = '\0';
+
+    const char *cursor = buffer;
+    const char *headEnd = buffer + headerLen;
+
+    const char *firstLineEnd = NULL;
+    for (const char *p = cursor; p + 1 < headEnd; p++)
+    {
+        if (p[0] == '\r' && p[1] == '\n')
+        {
+            firstLineEnd = p;
+            break;
+        }
+    }
+
+    if (firstLineEnd == NULL)
+    {
+        return -1;
+    }
+
+    size_t firstLineLen = (size_t)(firstLineEnd - cursor);
+    if (firstLineLen >= 512)
+    {
+        firstLineLen = 511;
+    }
+
+    char statusLine[512];
+    memcpy(statusLine, cursor, firstLineLen);
+    statusLine[firstLineLen] = '\0';
+
+    int major = 0;
+    int minor = 0;
+    int code = 0;
+    char reason[256] = {0};
+    int parsed = sscanf(statusLine, "HTTP/%d.%d %d %255[^\r\n]", &major, &minor, &code, reason);
+    if (parsed < 3)
+    {
+        return -1;
+    }
+
+    *statusCode = code;
+    if (parsed >= 4)
+    {
+        snprintf(statusMessage, statusMessageSize, "%s", reason);
+    }
+
+    cursor = firstLineEnd + 2;
+    while (cursor < headEnd)
+    {
+        if ((headEnd - cursor) >= 2 && cursor[0] == '\r' && cursor[1] == '\n')
+        {
+            break;
+        }
+
+        const char *lineEnd = NULL;
+        for (const char *p = cursor; p + 1 < headEnd; p++)
+        {
+            if (p[0] == '\r' && p[1] == '\n')
+            {
+                lineEnd = p;
+                break;
+            }
+        }
+
+        if (lineEnd == NULL)
+        {
+            break;
+        }
+
+        const char *colon = NULL;
+        for (const char *p = cursor; p < lineEnd; p++)
+        {
+            if (*p == ':')
+            {
+                colon = p;
+                break;
+            }
+        }
+
+        if (colon != NULL && headers->count < 100)
+        {
+            const char *keyStart = cursor;
+            const char *keyEnd = colon;
+            const char *valueStart = colon + 1;
+            const char *valueEnd = lineEnd;
+
+            TrimSpaces(&keyStart, &keyEnd);
+            TrimSpaces(&valueStart, &valueEnd);
+
+            if (keyEnd > keyStart)
+            {
+                size_t keyLen = (size_t)(keyEnd - keyStart);
+                size_t valueLen = (size_t)(valueEnd - valueStart);
+
+                if (keyLen > 255)
+                {
+                    keyLen = 255;
+                }
+                if (valueLen > 255)
+                {
+                    valueLen = 255;
+                }
+
+                HTTPHeader *header = &headers->headers[headers->count];
+                memcpy(header->key, keyStart, keyLen);
+                header->key[keyLen] = '\0';
+                memcpy(header->value, valueStart, valueLen);
+                header->value[valueLen] = '\0';
+                headers->count++;
+            }
+        }
+
+        cursor = lineEnd + 2;
+    }
+
+    return 0;
+}
+
+HTTPResponse ReadHTTPResponse(IClientSocket *backend)
 {
     HTTPResponse response = {0};
-    if (backend == NULL || client == NULL)
+
+    if (backend == NULL)
     {
-        fprintf(stderr, "ReadHTTPResponse: backend o client es NULL\n");
+        fprintf(stderr, "ReadHTTPResponse: backend es NULL\n");
         return response;
     }
+
+    // Acumular datos solo para parsear status line + headers.
+    char accumulator[65536];
+    size_t accumulatedBytes = 0;
+    int statusCode = 0;
+    char statusMessage[64] = {0};
+    HTTPHeaders parsedHeaders = {0};
+    int headersParsed = 0;
+    int parseOk = 0;
+
+    unsigned char *responseBody = NULL;
+    size_t responseBodyLength = 0;
+    size_t responseBodyCapacity = 0;
 
     char buffer[8192];
     while (1)
@@ -451,8 +625,8 @@ HTTPResponse ReadHTTPResponse(IClientSocket *backend, IClientSocket *client)
         int n = RecvFromClient(backend, buffer, sizeof(buffer));
         if (n < 0)
         {
-            // error en recv
-            return response;
+            fprintf(stderr, "ReadHTTPResponse: recv error\n");
+            break;
         }
         if (n == 0)
         {
@@ -460,30 +634,109 @@ HTTPResponse ReadHTTPResponse(IClientSocket *backend, IClientSocket *client)
             break;
         }
 
-        // Reenviar todo el buffer al cliente, manejando envíos parciales
-        int remaining = n;
-        char *ptr = buffer;
-        while (remaining > 0)
+        // Si aún no hemos parseado los headers, acumular datos
+        if (!headersParsed)
         {
-            ssize_t written = send(client->fd, ptr, remaining, 0);
-            if (written < 0)
+            // Asegurarse de que no hay buffer overflow
+            if (accumulatedBytes + n > sizeof(accumulator))
             {
-                if (errno == EINTR)
-                {
-                    continue; // reintentar
-                }
-                if (errno == EAGAIN || errno == EWOULDBLOCK)
-                {
-                    // En modo bloqueante esto no debería pasar; pero si pasa, small sleep y retry
-                    usleep(1000);
-                    continue;
-                }
-                perror("ReadHTTPResponse: send");
-                return response;
+                fprintf(stderr, "ReadHTTPResponse: respuesta muy grande\n");
+                break;
             }
-            remaining -= (int)written;
-            ptr += written;
+
+            memcpy(accumulator + accumulatedBytes, buffer, n);
+            accumulatedBytes += n;
+
+            // Buscar "\r\n\r\n" que marca el fin de headers
+            char *headersEnd = FindHeadersEnd(accumulator, accumulatedBytes);
+            if (headersEnd)
+            {
+                headersParsed = 1;
+
+                size_t headerLen = (size_t)(headersEnd - accumulator);
+                if (ParseResponseHead(accumulator,
+                                      headerLen,
+                                      &statusCode,
+                                      statusMessage,
+                                      sizeof(statusMessage),
+                                      &parsedHeaders) == 0)
+                {
+                    parseOk = 1;
+                }
+                else
+                {
+                    fprintf(stderr, "ReadHTTPResponse: no se pudo parsear el response head\n");
+                }
+
+                // Guardar en body los bytes ya recibidos después de \r\n\r\n
+                char *bodyStart = headersEnd + 4;
+                size_t bodyChunkLen = (size_t)((accumulator + accumulatedBytes) - bodyStart);
+                if (bodyChunkLen > 0)
+                {
+                    responseBody = malloc(bodyChunkLen);
+                    if (responseBody == NULL)
+                    {
+                        fprintf(stderr, "ReadHTTPResponse: malloc fallo para body\n");
+                        break;
+                    }
+
+                    memcpy(responseBody, bodyStart, bodyChunkLen);
+                    responseBodyLength = bodyChunkLen;
+                    responseBodyCapacity = bodyChunkLen;
+                }
+
+                continue;
+            }
         }
+
+        // Si headers ya fueron parseados, este chunk pertenece al body.
+        if (headersParsed)
+        {
+            size_t incomingLen = (size_t)n;
+            if (incomingLen > 0)
+            {
+                if (responseBodyLength + incomingLen > responseBodyCapacity)
+                {
+                    size_t newCapacity = responseBodyCapacity == 0 ? incomingLen : responseBodyCapacity;
+                    while (newCapacity < responseBodyLength + incomingLen)
+                    {
+                        newCapacity *= 2;
+                    }
+
+                    unsigned char *newBody = realloc(responseBody, newCapacity);
+                    if (newBody == NULL)
+                    {
+                        fprintf(stderr, "ReadHTTPResponse: realloc fallo para body\n");
+                        free(responseBody);
+                        responseBody = NULL;
+                        responseBodyLength = 0;
+                        responseBodyCapacity = 0;
+                        break;
+                    }
+
+                    responseBody = newBody;
+                    responseBodyCapacity = newCapacity;
+                }
+
+                memcpy(responseBody + responseBodyLength, buffer, incomingLen);
+                responseBodyLength += incomingLen;
+            }
+        }
+    }
+
+    if (parseOk)
+    {
+        BuildHTTPResponse(
+            &response,
+            statusCode,
+            statusMessage[0] != '\0' ? statusMessage : NULL,
+            &parsedHeaders,
+            responseBody,
+            responseBodyLength);
+    }
+    else
+    {
+        free(responseBody);
     }
 
     return response;

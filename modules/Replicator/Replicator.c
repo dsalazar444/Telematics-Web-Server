@@ -31,7 +31,7 @@ static HTTPRequest *CopyHTTPRequest(const HTTPRequest *src)
     return dst;
 }
 
-void ReplicatorReplicate(HTTPRequest *message, LoadBalancer *lb, BackendNode *originNode) {
+void ReplicatorReplicate(const HTTPRequest *message, LoadBalancer *lb, BackendNode *originNode) {
     if (message == NULL || lb == NULL || originNode == NULL) return;
 
     BackendNode *nodesList = lb->backend_nodes; // direct pointer
@@ -46,7 +46,7 @@ void ReplicatorReplicate(HTTPRequest *message, LoadBalancer *lb, BackendNode *or
         if (!args) continue;
         memset(args, 0, sizeof(*args));
 
-        HTTPRequest *req_copy = copy_http_request(message);
+        HTTPRequest *req_copy = CopyHTTPRequest(message);
         if (!req_copy) {
             free(args);
             continue;

@@ -18,6 +18,6 @@ void GetPeerName(IClientSocket *client, char *ip_out, int *port_out);
 void GetSockName(IClientSocket *client, char *ip_out, int *port_out);
 int SetClientNonBlocking(IClientSocket *client, int enable);
 int SendHTTPRequest(IClientSocket *socket, const HTTPRequest *request);
-HTTPResponse ReadHTTPResponse(IClientSocket *backend, IClientSocket *client);
+HTTPResponse ReadHTTPResponse(IClientSocket *backend);
 
 #endif // SOCKET_H

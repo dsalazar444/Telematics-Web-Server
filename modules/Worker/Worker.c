@@ -3,6 +3,7 @@
 #include "../HttpServer/src/Response.h"
 #include "../../Includes/HttpUtils.h"
 #include "../HttpServer/src/ResponseSender.h"
+#include "../Replicator/Replicator.h"
 
 void *worker(void *arg)
 {
@@ -87,7 +88,7 @@ void *worker(void *arg)
             memset(proxyMessage, 0, sizeof(*proxyMessage));
             proxyMessage->request = request; // point to parsed request (no copy)
             proxyMessage->shouldCache = false;
-            proxyMessage->shouldReplicate = false;
+            proxyMessage->shouldReplicate = (request->method == POST);
 
             if (cacheManager != NULL && cacheKeyFromRequest(request, proxyMessage->cacheKey, sizeof(proxyMessage->cacheKey))) {
                 proxyMessage->shouldCache = true;
@@ -122,22 +123,22 @@ void ConnectToBackendAndForward(WorkerArgs *workerArgs, ProxyMessage *message){
 
     LoadBalancer *lb = workerArgs->lb;
     BackendNode backend = LoadBalancerSelectBackend(lb);
-    (void)message;
     IClientSocket *backendSocket = CreateClientSocket(backend.id.ip, backend.id.port, 5000);
     IncrementActiveConnections(lb, &backend);
-    HTTPResponse response = ReadHTTPResponse(backendSocket, workerArgs->client);
+    HTTPResponse response = ReadHTTPResponse(backendSocket);
     DecrementActiveConnections(lb, &backend);
+    CloseClientSocket(backendSocket);
 
-    message->response = response; // Marcar para replicación si se desea
+    message->response = response;
 
-    if (response.statusCode == 200 && message->shouldReplicate) {
-        // Lanzar hilo de replicación (ej: pthread_create con replicatorWorker)
-        // Pasar message y backend.id para que el replicator sepa qué replicar y a dónde
+    if (response.statusCode != 200) {
+        message->shouldCache = false;
+        message->shouldReplicate = false;
     }
 
-    // NOTE: ownership of `message` (and message->request) is transferred here.
-    // If this function performs the final handling, it must free them when done.
-    // If the message is enqueued to another component/thread, that component must free them.
+    if (message->shouldReplicate) {
+        ReplicatorReplicate(message->request, lb, &backend);
+    }
 }
 
 void PrintHttpRequest(const HTTPRequest *request) {

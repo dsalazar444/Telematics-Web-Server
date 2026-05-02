@@ -4,6 +4,8 @@
 bool BuildHTTPResponse(HTTPResponse *response,int statusCode,const char *statusMessage,HTTPHeaders *headers,unsigned char *body,size_t bodyLength)
 {
 
+    response->statusCode = statusCode;
+
     const char *msg = statusMessage ? statusMessage : GetReasonPhrase(statusCode);
 
     snprintf(response->statusMessage, sizeof(response->statusMessage), "%s", msg);
