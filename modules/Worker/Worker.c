@@ -117,15 +117,13 @@ void *worker(void *arg)
             {
                 // Transfer ownership to ConnectToBackendAndForward (it must free message/request when done)
                 ConnectToBackendAndForward(workerArgs, proxyMessage);
-                CacheStoreAsync(cacheManager, proxyMessage);
-                SendHTTPRequest(client, request);
+                SendHTTPResponse(client, &proxyMessage->response);
+                if (proxyMessage->shouldCache && proxyMessage->response.statusCode == 200) {
+                    CacheStoreAsync(cacheManager, proxyMessage);
+                }
+                
             }
-
-
         }
-
-        char *response = "HTTP/1.1 200 OK\r\nContent-Length: 12\r\n\r\nHola cliente\r\n";
-        SendToClient(client, response, strlen(response));
 
         // Limpiar buffer para la siguiente petición
         requestLen = 0;
