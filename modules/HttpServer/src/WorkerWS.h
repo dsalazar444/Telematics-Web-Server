@@ -3,7 +3,6 @@
 #define WORKER_WS_H
 
 #include "../../../Includes/ISocket.h"
-
 typedef struct {
     IClientSocket* client;
 } WorkerWSArgs;

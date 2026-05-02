@@ -5,15 +5,14 @@
 #include "Config/Config.h"
 #include "modules/LoadBalancer/loadBalancer.h"
 #include "modules/LoadBalancer/HealthCheck.h"
-#include "modules/Worker/Worker.h"
+#include "modules/Worker/ProxyWorker.h"
 #include "modules/CacheManager/CacheManager.h"
 #include <stdlib.h>
-#include "modules/HttpServer/src/MainServer.h"
 
 int main()
 {
 
-    Config config = LoadConfig("Config/proxy.config");
+    Config config = LoadConfig("../Config/proxy.config");
 
     ISocketListener listener;
     listener.fd = CreateDualStackSocket();
@@ -44,10 +43,6 @@ int main()
     pthread_t health_thread;
     pthread_create(&health_thread, NULL, HealthCheckLoop, lb);
     pthread_detach(health_thread); // dejar que corra independientemente
-
-    pthread_t server_thread;
-    pthread_create(&server_thread, NULL, (void*(*)(void*))runServer, NULL);
-    pthread_detach(server_thread);
     
     while (1)
     {

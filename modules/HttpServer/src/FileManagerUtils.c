@@ -32,7 +32,7 @@ static const MimeEntry MIME_TABLE[] = {
     { NULL, NULL }  // centinela — marca el fin de la tabla
 };
 
-static char _documentRoot[MAX_PATH_LEN] = "./modules/HttpServer/www";
+static char _documentRoot[MAX_PATH_LEN] = "../modules/HttpServer/www";
 
 void FileManagerSetRoot(const char* root) {
     strncpy(_documentRoot, root, MAX_PATH_LEN - 1);

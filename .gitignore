@@ -1,3 +1,5 @@
 modules/HttpServer/www/*
 .vscode
-servidor
+build/*
+bin
+
