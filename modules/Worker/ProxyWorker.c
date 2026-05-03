@@ -124,17 +124,25 @@ void *worker(void *arg)
         // 8. Invalidar caché si es POST exitoso
         if (request->method == POST && proxyMessage->response.statusCode == 200)
         {
-            CacheInvalidateByRequest(cacheManager, request);
+            if (cacheManager != NULL)
+            {
+                CacheInvalidateByRequest(cacheManager, request);
+            }
         }
 
         // 9. Cachear en background si aplica
+        bool bodyOwnedByCacheThread = false;
         if (proxyMessage->shouldCache && proxyMessage->response.statusCode == 200)
         {
             CacheStoreAsync(cacheManager, proxyMessage);
+            bodyOwnedByCacheThread = true;
         }
 
         // 10. Liberar
-        free(proxyMessage->response.body);
+        if (!bodyOwnedByCacheThread)
+        {
+            free(proxyMessage->response.body);
+        }
         free(proxyMessage);
         free(request->body);
         free(request);
@@ -144,6 +152,7 @@ void *worker(void *arg)
 
     // 11. Cerrar conexión
     CloseClientSocket(client);
+    free(workerArgs);
     return NULL;
 }
 

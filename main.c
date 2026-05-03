@@ -40,9 +40,9 @@ int main()
         return 1;
     }
 
-    pthread_t health_thread;
-    pthread_create(&health_thread, NULL, HealthCheckLoop, lb);
-    pthread_detach(health_thread); // dejar que corra independientemente
+    // pthread_t health_thread;
+    // pthread_create(&health_thread, NULL, HealthCheckLoop, lb);
+    // pthread_detach(health_thread); // dejar que corra independientemente
     
     while (1)
     {

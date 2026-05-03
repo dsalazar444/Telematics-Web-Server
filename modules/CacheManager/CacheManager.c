@@ -205,10 +205,17 @@ miss:
 
 void CacheStoreAsync(CacheManager *cacheManager, ProxyMessage *proxyMessage)
 {
+    if (cacheManager == NULL || proxyMessage == NULL || proxyMessage->request == NULL)
+        return;
+
+    const char *host = findHeader(&proxyMessage->request->headers, "Host");
+    if (host == NULL)
+        return;
+
     char rawKey[512];
     snprintf(rawKey, sizeof(rawKey), "%s|%s|%s",
              MethodToString(proxyMessage->request->method),
-             findHeader(&proxyMessage->request->headers, "Host"),
+             host,
              proxyMessage->request->path);
 
     CacheStoreArgs *storeArgs = malloc(sizeof(CacheStoreArgs));
@@ -240,7 +247,7 @@ void cacheInvalidate(CacheManager *cache, const char *cacheKey)
     {
         // Borrar disco
         char path[512];
-        BuildPath(cache, cacheKey, "cache", path, sizeof(path));
+        BuildPath(cache, cacheKey, "", path, sizeof(path));
         remove(path);
 
         // Borrar RAM
@@ -253,9 +260,16 @@ void cacheInvalidate(CacheManager *cache, const char *cacheKey)
 }
 
 void CacheInvalidateByRequest(CacheManager *cache, const HTTPRequest *request) {
+    if (cache == NULL || request == NULL)
+        return;
+
+    const char *host = findHeader(&request->headers, "Host");
+    if (host == NULL)
+        return;
+
     char rawKey[512];
     snprintf(rawKey, sizeof(rawKey), "GET|%s|%s",
-             findHeader(&request->headers, "Host"),
+             host,
              request->path);
 
     char cacheKey[33];

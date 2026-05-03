@@ -24,14 +24,19 @@ static bool addHeader(CacheMeta *meta, const char *key, const char *value)
 
 static bool readCacheHeader(FILE *file, CacheMeta *meta, char *rawKey, size_t rawKeySize, time_t *timestamp, long *bodyOffset)
 {
-    if (!file || meta || (rawKey && rawKeySize == 0) || (timestamp == NULL && bodyOffset == NULL))
+    if (!file)
         return false;
 
+    /* Inicializaciones seguras: sólo escribir en punteros válidos */
+    if (meta) {
         meta->statusCode = 200;
         meta->contentLength = 0;
         snprintf(meta->contentType, sizeof(meta->contentType), "application/octet-stream");
         meta->extraHeaders.count = 0;
+    }
+    if (rawKey && rawKeySize > 0)
         rawKey[0] = '\0';
+    if (timestamp)
         *timestamp = 0;
 
     char line[512];
@@ -55,7 +60,7 @@ static bool readCacheHeader(FILE *file, CacheMeta *meta, char *rawKey, size_t ra
 
         value[strcspn(value, "\r\n")] = '\0';
 
-        // 🔹 Campos especiales
+        /* Campos especiales y escritura sólo si los punteros son válidos */
         if (rawKey && strcmp(key, "key") == 0)
         {
             snprintf(rawKey, rawKeySize, "%s", value);
@@ -78,7 +83,6 @@ static bool readCacheHeader(FILE *file, CacheMeta *meta, char *rawKey, size_t ra
             meta->contentLength = (size_t)atol(value);
             addHeader(meta, "Content-Length", value);
         }
-        // 🔹 Headers extra
         else if (meta)
         {
             addHeader(meta, key, value);

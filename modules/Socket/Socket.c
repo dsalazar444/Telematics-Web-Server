@@ -135,9 +135,6 @@ IClientSocket *CreateClientSocket(const uint8_t ip[4], int port, int timeout_ms)
 
     memcpy(&serverAddr.sin_addr, ip, sizeof(serverAddr.sin_addr));
 
-    // char ipString[INET_ADDRSTRLEN];
-    // if (inet_ntop(AF_INET, &serverAddr.sin_addr, ipString, sizeof(ipString)) == NULL) { ... }
-
     // PASO 4b: Intentar connect
     int connectResult = connect(clientSocket->fd, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
 
@@ -441,6 +438,7 @@ int SendHTTPRequest(IClientSocket *socket, const HTTPRequest *request)
     return 0;
 }
 
+//TODO Revisar de qui pa abajo
 // Helper: buscar "\r\n\r\n" en un buffer
 static char *FindHeadersEnd(const char *buffer, size_t len)
 {
@@ -657,7 +655,11 @@ HTTPResponse ReadHTTPResponse(IClientSocket *backend)
             {
                 headersParsed = 1;
 
-                size_t headerLen = (size_t)(headersEnd - accumulator);
+                /* Incluir el CRLF final de la última cabecera para que el parser
+                 * vea el '\r\n' que termina esa línea. FindHeadersEnd devuelve
+                 * la posición del '\r' de la primera secuencia "\r\n\r\n",
+                 * por lo que debemos sumar 2 para incluir el primer CRLF. */
+                size_t headerLen = (size_t)(headersEnd - accumulator) + 2;
                 if (ParseResponseHead(accumulator,
                                       headerLen,
                                       &statusCode,

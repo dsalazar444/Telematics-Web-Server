@@ -1,51 +1,110 @@
 #include "ResponseSender.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
+#include <strings.h>
+
+static int SendAll(IClientSocket *client, const char *data, size_t length)
+{
+    size_t sentTotal = 0;
+    while (sentTotal < length)
+    {
+        int sent = SendToClient(client, data + sentTotal, (int)(length - sentTotal));
+        if (sent <= 0)
+        {
+            return -1;
+        }
+        sentTotal += (size_t)sent;
+    }
+
+    return 0;
+}
+
+static int SendHeaderLine(IClientSocket *client, const char *key, const char *value)
+{
+    if (SendAll(client, key, strlen(key)) < 0)
+    {
+        return -1;
+    }
+
+    if (SendAll(client, ": ", 2) < 0)
+    {
+        return -1;
+    }
+
+    if (SendAll(client, value, strlen(value)) < 0)
+    {
+        return -1;
+    }
+
+    return SendAll(client, "\r\n", 2);
+}
 
 // Serialize headers and send response (headers + body). Returns 0 on success, -1 on failure.
 int SendHTTPResponse(IClientSocket *client, HTTPResponse *response)
 {
     if (!client || !response) return -1;
 
-    char headersBuf[1024];
-    int off = snprintf(headersBuf, sizeof(headersBuf), "HTTP/1.1 %d %s\r\n", response->statusCode, response->statusMessage);
-    if (off < 0) return -1;
-
-    for (size_t i = 0; i < response->headers.count && off < (int)sizeof(headersBuf) - 1; ++i) {
-        int n = snprintf(headersBuf + off, sizeof(headersBuf) - off, "%s: %s\r\n",
-                        response->headers.headers[i].key,
-                        response->headers.headers[i].value);
-        if (n < 0) return -1;
-        off += n;
+    char statusLine[128];
+    int statusLen = snprintf(statusLine, sizeof(statusLine), "HTTP/1.1 %d %s\r\n", response->statusCode, response->statusMessage);
+    if (statusLen < 0 || statusLen >= (int)sizeof(statusLine))
+    {
+        return -1;
     }
 
-    // add separator
-    if (off + 2 < (int)sizeof(headersBuf)) {
-        memcpy(headersBuf + off, "\r\n", 2);
-        off += 2;
-    } else {
-        // headers buffer full — send what we have and continue
-        if (SendToClient(client, headersBuf, off) <= 0) return -1;
-        // send separator
-        if (SendToClient(client, "\r\n", 2) <= 0) return -1;
-        off = 0;
+    if (SendAll(client, statusLine, (size_t)statusLen) < 0)
+    {
+        return -1;
     }
 
-    // send headers
-    if (off > 0) {
-        if (SendToClient(client, headersBuf, off) <= 0) return -1;
+    bool hasContentLength = false;
+    for (size_t i = 0; i < response->headers.count; ++i)
+    {
+        if (strcasecmp(response->headers.headers[i].key, "Content-Length") == 0)
+        {
+            hasContentLength = true;
+            break;
+        }
     }
 
-    // send body in chunks (response->bodyLength may be large or binary)
-    if (response->body && response->bodyLength > 0) {
+    for (size_t i = 0; i < response->headers.count; ++i)
+    {
+        if (SendHeaderLine(client,
+                           response->headers.headers[i].key,
+                           response->headers.headers[i].value) < 0)
+        {
+            return -1;
+        }
+    }
+
+    if (!hasContentLength && response->body && response->bodyLength > 0)
+    {
+        char lenStr[32];
+        snprintf(lenStr, sizeof(lenStr), "%zu", response->bodyLength);
+        if (SendHeaderLine(client, "Content-Length", lenStr) < 0)
+        {
+            return -1;
+        }
+    }
+
+    if (SendAll(client, "\r\n", 2) < 0)
+    {
+        return -1;
+    }
+
+    if (response->body && response->bodyLength > 0)
+    {
         const char *ptr = (const char*)response->body;
         size_t remaining = response->bodyLength;
-        while (remaining > 0) {
+        while (remaining > 0)
+        {
             int chunk = remaining > 4096 ? 4096 : (int)remaining;
-            int sent = SendToClient(client, ptr, chunk);
-            if (sent <= 0) return -1;
-            ptr += sent;
-            remaining -= (size_t)sent;
+            if (SendAll(client, ptr, (size_t)chunk) < 0)
+            {
+                return -1;
+            }
+            ptr += chunk;
+            remaining -= (size_t)chunk;
         }
     }
 

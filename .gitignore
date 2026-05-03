@@ -2,4 +2,4 @@ modules/HttpServer/www/*
 .vscode
 build/*
 bin
-
+cache/*

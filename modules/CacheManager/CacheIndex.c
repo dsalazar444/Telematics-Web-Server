@@ -72,8 +72,7 @@ void cacheLoadFromDisk(CacheManager *cache)
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL)
     {
-        if (entry->d_name[0] == '.' || strchr(entry->d_name, '.') != NULL)
-            continue;
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
 
         char cachePath[512];
         BuildPath(cache, entry->d_name, "", cachePath, sizeof(cachePath));

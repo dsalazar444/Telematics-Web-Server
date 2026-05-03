@@ -5,7 +5,7 @@
 #include <stdlib.h>
 // Heredados desde Worker.h (ISocket.h)
 
-const int PORT = 8082;
+const int PORT = 8083;
 
 int main() {
     ISocketListener listener;

@@ -71,10 +71,12 @@ HTTPResponse* ResponseError(int statusCode) {
     // Convierte el tamaño del body (bodyLen) a string para el header Content-Length
     // el body de un Error es el html que retornamos
     snprintf(lenStr, sizeof(lenStr), "%zu", bodyLen); // convertimos num a text
-    // Añade el header Content-Type con valor "text/html"
-    AddHeader(res, "Content-Type",   "text/html");
     // Añade el header Content-Length con el valor calculado en lenStr
     AddHeader(res, "Content-Length", lenStr);
+    // Añade el header Content-Type con valor "text/html"
+    AddHeader(res, "Content-Type",   "text/html");
+
+    AddHeader(res, "Connection", "close"); // para indicar que el servidor cerrará la conexión después de enviar la respuesta de error
 
     return res;
 }
