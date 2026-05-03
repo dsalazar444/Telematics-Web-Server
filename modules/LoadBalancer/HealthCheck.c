@@ -4,12 +4,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "modules/Logs/Log.h"
 
 #define HEALTH_CHECK_INTERVAL 5
+#define LEVEL "Load Balancer"
+
 
 void *HealthCheckLoop(void *arg)
 {
-    LoadBalancer *lb = (LoadBalancer *)arg;
+    HealthCheckArgs *args = (HealthCheckArgs *)arg;
+    if (args == NULL) return NULL;
+
+    LoadBalancer *lb = args->lb;
+    int logFile = args->logFile;
 
     while (1)
     {
@@ -35,6 +42,7 @@ void *HealthCheckLoop(void *arg)
 
         printf("\033[2J\033[H");
         LoadBalancerPrint(lb); // opcional: mostrar estado
+        LogWrite(logFile, LEVEL, lb);
         fflush(stdout);
     }
     return NULL;

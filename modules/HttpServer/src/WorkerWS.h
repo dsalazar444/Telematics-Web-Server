@@ -5,6 +5,7 @@
 #include "../../../Includes/ISocket.h"
 typedef struct {
     IClientSocket* client;
+    int logFile;
 } WorkerWSArgs;
 
 void* WorkerRun(void* arg);  // función del thread

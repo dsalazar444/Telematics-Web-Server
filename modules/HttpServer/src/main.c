@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include "modules/Logs/Log.h"
+
+#define LEVEL "Server"
 // Heredados desde Worker.h (ISocket.h)
 
 const int PORT = 8083;
@@ -20,6 +23,9 @@ int main() {
 
     printf("Server/1.0 HTTP escuchando en puerto %d\n", PORT);
 
+    const char *path = "../modules/HttpServer/www/health/logs.log"; //-> obtenido de comando
+    int logFile = LogInit(path);
+
     while (1)
     {
         IClientSocket* client = AcceptSocket(&listener);
@@ -31,6 +37,7 @@ int main() {
             continue;
         }
         args->client = client;
+        args->logFile = logFile;
 
         pthread_t thread;
         if (pthread_create(&thread, NULL, WorkerRun, args) != 0) {

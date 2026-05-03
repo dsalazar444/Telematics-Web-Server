@@ -13,7 +13,7 @@
 
 void PrintHttpRequest(const HTTPRequest *request);
 void PrintHttpResponse(const HTTPResponse *res);
-void logWrite(int fd, const char *level, const char *msg);
-
+void LogWrite(int file, const char *level, const char *msg);
+int LogInit(const char *path);
 
 #endif // Log_H

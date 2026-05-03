@@ -6,12 +6,15 @@
 #include "../../modules/Logs/Log.h"
 #include "../../Includes/HttpUtils.h"
 
+#define LEVEL "Cache"
+
 void *worker(void *arg)
 {
     WorkerArgs *workerArgs = (WorkerArgs *)arg;
     IClientSocket *client = workerArgs->client;
     LoadBalancer *lb = workerArgs->lb;
     CacheManager *cacheManager = workerArgs->cacheManager;
+    int logFile = workerArgs->logFile;
 
     char buffer[4096];
     char requestBuffer[4096];
@@ -74,6 +77,7 @@ void *worker(void *arg)
         }
 
         PrintHttpRequest(request);
+        LogWrite(logFile, LEVEL, request);
 
         // 4. Allocar ProxyMessage
         ProxyMessage *proxyMessage = malloc(sizeof(*proxyMessage));

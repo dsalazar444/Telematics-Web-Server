@@ -1,7 +1,8 @@
 #include <string.h>
-
 #include "Log.h"
 #include "../Includes/HttpUtils.h"
+#include <pthread.h>
+static pthread_mutex_t _logMutex = PTHREAD_MUTEX_INITIALIZER;
 
 void PrintHttpRequest(const HTTPRequest *request)
 {
@@ -49,19 +50,27 @@ void PrintHttpResponse(const HTTPResponse *res) {
     }
 }
 
-void logWrite(int file, const char *level, const char *msg) {
-    char buf[1024];
-    
-    time_t now = time(NULL);
-    struct tm *t = localtime(&now);
-    char timestamp[32];
-    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", t);
+    void LogWrite(int file, const char *level, const char *msg) {
+        char buf[1024];
+        
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+        char timestamp[32];
+        strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", t);
+        int len = snprintf(buf, sizeof(buf), "[%s] [%s] %s\n", timestamp, level, msg);
 
-    int len = snprintf(buf, sizeof(buf), "[%s] [%s] %s\n", timestamp, level, msg);
-    write(file, buf, len);
-}
+         // escritura atómica
+        pthread_mutex_lock(&_logMutex);
+        write(file, buf, len);
+        pthread_mutex_unlock(&_logMutex);
+    }
 
-void LogInit(const char *path) {
+    int LogInit(const char *path) {
 
-    int logFile = open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
-}
+        int logFile = open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
+        if (logFile < 0) {
+            perror("Error abriendo log");
+            return -1;
+        }
+        return logFile; 
+    }

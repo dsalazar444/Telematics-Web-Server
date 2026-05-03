@@ -7,11 +7,12 @@
 #include "modules/LoadBalancer/HealthCheck.h"
 #include "modules/Worker/ProxyWorker.h"
 #include "modules/CacheManager/CacheManager.h"
+#include "modules/Logs/Log.h"
 #include <stdlib.h>
 
+#define LEVEL "Main"
 int main()
 {
-
     Config config = LoadConfig("../Config/proxy.config");
 
     ISocketListener listener;
@@ -26,10 +27,18 @@ int main()
 
     printf("Servidor escuchando en puerto %d\n", config.port);
 
+    // TODO: Despues de obtener log_file, de comando, guardalo como puneto, y pasarlo como path
+    const char *path = "/ruta_falsa"; //-> obtenido de comando
+    int logFile = LogInit(path);
 
     // Crear el LoadBalancer con los backends y el contador
     LoadBalancer *lb = LoadBalancerCreate(config.backends, config.backendCount);
     LoadBalancerPrint(lb);
+    LogWrite(logFile, LEVEL, lb);
+
+    HealthCheckArgs *healthCheckArgs = malloc(sizeof(HealthCheckArgs));
+    healthCheckArgs->lb = lb;
+    healthCheckArgs->logFile = logFile;
 
     // // Crear la caché
     CacheManager *cacheManager = CacheManagerCreate(config.cacheDir, config.ttl);
@@ -40,9 +49,9 @@ int main()
         return 1;
     }
 
-    // pthread_t health_thread;
-    // pthread_create(&health_thread, NULL, HealthCheckLoop, lb);
-    // pthread_detach(health_thread); // dejar que corra independientemente
+    pthread_t health_thread;
+    pthread_create(&health_thread, NULL, HealthCheckLoop, healthCheckArgs);
+    pthread_detach(health_thread); // dejar que corra independientemente
     
     while (1)
     {
@@ -54,6 +63,7 @@ int main()
         args->client = client;
         args->lb = lb; // mismo puntero para todos
         args->cacheManager = cacheManager; // pasar el puntero a la caché
+        args->logFile = logFile;
         pthread_t thread;
         pthread_create(&thread, NULL, worker, args);
         pthread_detach(thread);
