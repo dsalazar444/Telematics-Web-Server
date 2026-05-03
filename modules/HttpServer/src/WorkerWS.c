@@ -5,6 +5,7 @@
 #include "../../../Includes/HttpUtils.h"
 #include "../../Logs/Log.h"
 
+#define LEVEL "Server"
 // Heredados desde Worker.h (ISocket.h)
 // Heredados desde HttpParser.h (http.h)
 // Heredados desde ResponseSender.h (Response.h, Socket.h)
@@ -22,11 +23,14 @@ void* WorkerRun(void* arg) {
     // casteamos arg a tipo real
     WorkerWSArgs *workerArgs = (WorkerWSArgs*)arg;
     IClientSocket *client = workerArgs->client;
+    int logFile = workerArgs->logFile;
     free(arg);  // liberar el malloc de main
 
     // recibir request
     HTTPRequest* req = RecvRequest(client);
     PrintHttpRequest(req);
+    const char *reqString = HttpRequestToString(req);
+    LogWrite(logFile, LEVEL, reqString);
 
     // procesar
     HTTPResponse* res = ProcessRequest(req);
@@ -34,6 +38,8 @@ void* WorkerRun(void* arg) {
         res = ResponseError(500);
     }
     PrintHttpResponse(res);
+    const char *resString = HttpResponseToString(res);
+    LogWrite(logFile, LEVEL, resString);
     
     // enviar response
     int sent = SendHTTPResponse(client, res);

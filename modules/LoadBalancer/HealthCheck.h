@@ -4,6 +4,11 @@
 #include "loadBalancer.h"
 #include <unistd.h>
 
+typedef struct {
+    LoadBalancer *lb;   // Compartido entre todos los workers
+    int logFile; // int que da write en logInit() 
+} HealthCheckArgs;
+
 void *HealthCheckLoop(void *arg);
 bool HealthCheckBackend(IDBackendNode id);
 

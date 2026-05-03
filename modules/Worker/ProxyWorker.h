@@ -19,6 +19,7 @@ typedef struct {
     IClientSocket *client;
     LoadBalancer *lb;   // Compartido entre todos los workers
     CacheManager *cacheManager;       // Puntero a la caché compartida
+    int logFile; // int que da write en logInit() 
 } WorkerArgs;
 
 void* worker(void* arg);

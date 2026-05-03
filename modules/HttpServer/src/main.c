@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <string.h>
+#include "../../Logs/Log.h"
+
+#define LEVEL "Server"
 // Heredados desde Worker.h (ISocket.h)
 
 void print_usage(const char *program_name) {
@@ -67,6 +70,9 @@ int main(int argc, char *argv[]) {
 
     printf("Server/1.0 HTTP escuchando en puerto %d\n", port);
 
+    const char *path = "../modules/HttpServer/www/health/logs.log"; //-> obtenido de comando
+    int logFile = LogInit(path);
+
     while (1)
     {
         IClientSocket* client = AcceptSocket(&listener);
@@ -78,6 +84,7 @@ int main(int argc, char *argv[]) {
             continue;
         }
         args->client = client;
+        args->logFile = logFile;
 
         pthread_t thread;
         if (pthread_create(&thread, NULL, WorkerRun, args) != 0) {
