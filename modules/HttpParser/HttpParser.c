@@ -61,7 +61,12 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
         free(request);
         return NULL;
     }
-    
+
+    size_t pathLen = strlen(request->path);
+    if (pathLen > 0 && request->path[pathLen - 1] == '/' && request->method != POST)
+    {
+        snprintf(request->path, sizeof(request->path), "%s/index.html", request->path);
+    }
 
     char headersCopy[headerSize + 1];
     memcpy(headersCopy, buffer, headerSize); 

@@ -6,6 +6,7 @@
 #include <getopt.h>
 #include <string.h>
 #include "../../Logs/Log.h"
+#include "FileManager.h"
 
 #define LEVEL "Server"
 // Heredados desde Worker.h (ISocket.h)
@@ -14,17 +15,20 @@ void print_usage(const char *program_name) {
     printf("Uso: %s [-l LOGFILE] [-p PORT]\n", program_name);
     printf("  -l, --logfile FILE    Archivo de log (por defecto: logs.log)\n");
     printf("  -p, --port PORT       Puerto de escucha (por defecto: 8083)\n");
+    printf("  -d, --dir DIR         Directorio de trabajo (por defecto: modules/HttpServer/www)\n");
     printf("  -h, --help            Mostrar esta ayuda\n");
 }
 
 int main(int argc, char *argv[]) {
     int port = 8083;
     char logfile[256] = "logs.log";
+    char dir[256] = "modules/HttpServer/www";
     
     // Definir opciones largas
     struct option long_options[] = {
         {"logfile", required_argument, 0, 'l'},
         {"port", required_argument, 0, 'p'},
+        {"dir", required_argument, 0, 'd'},
         {"help", no_argument, 0, 'h'},
         {0, 0, 0, 0}
     };
@@ -33,7 +37,7 @@ int main(int argc, char *argv[]) {
     int option_index = 0;
     
     // Parsear argumentos
-    while ((opt = getopt_long(argc, argv, "l:p:h", long_options, &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "l:p:d:h", long_options, &option_index)) != -1) {
         switch (opt) {
             case 'l':
                 strncpy(logfile, optarg, sizeof(logfile) - 1);
@@ -46,6 +50,11 @@ int main(int argc, char *argv[]) {
                     return 1;
                 }
                 break;
+            case 'd':
+                strncpy(dir, optarg, sizeof(dir) - 1);
+                dir[sizeof(dir) - 1] = '\0';
+                FileManagerInit(dir);
+                break;
             case 'h':
                 print_usage(argv[0]);
                 return 0;
@@ -57,6 +66,7 @@ int main(int argc, char *argv[]) {
     
     printf("Archivo de log: %s\n", logfile);
     printf("Puerto: %d\n", port);
+    printf("Directorio de trabajo: %s\n", dir); // TODO: usar el dir pasado por argumento
     
     ISocketListener listener;
     listener.fd = CreateDualStackSocket();
@@ -70,7 +80,7 @@ int main(int argc, char *argv[]) {
 
     printf("Server/1.0 HTTP escuchando en puerto %d\n", port);
 
-    const char *path = "../modules/HttpServer/www/health/logs.log"; //-> obtenido de comando
+    const char *path = "../modules/HttpServer/www/health/logs.log";
     int logFile = LogInit(path);
 
     while (1)
