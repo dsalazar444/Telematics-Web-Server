@@ -21,7 +21,7 @@ void print_usage(const char *program_name) {
 
 int main(int argc, char *argv[]) {
     int port = 8083;
-    char logfile[256] = "logs.log";
+    char logFileName[256];
     char dir[256] = "modules/HttpServer/www";
     
     // Definir opciones largas
@@ -35,13 +35,15 @@ int main(int argc, char *argv[]) {
     
     int opt;
     int option_index = 0;
+    int logFile;
     
     // Parsear argumentos
     while ((opt = getopt_long(argc, argv, "l:p:d:h", long_options, &option_index)) != -1) {
         switch (opt) {
             case 'l':
-                strncpy(logfile, optarg, sizeof(logfile) - 1);
-                logfile[sizeof(logfile) - 1] = '\0';
+                strncpy(logFileName, optarg, sizeof(logFileName) - 1);
+                logFileName[sizeof(logFileName) - 1] = '\0';
+                logFile = LogInit(logFileName);
                 break;
             case 'p':
                 port = atoi(optarg);
@@ -64,7 +66,7 @@ int main(int argc, char *argv[]) {
         }
     }
     
-    printf("Archivo de log: %s\n", logfile);
+    printf("Archivo de log: %s\n", logFileName);
     printf("Puerto: %d\n", port);
     printf("Directorio de trabajo: %s\n", dir); // TODO: usar el dir pasado por argumento
     
@@ -80,8 +82,6 @@ int main(int argc, char *argv[]) {
 
     printf("Server/1.0 HTTP escuchando en puerto %d\n", port);
 
-    const char *path = "../modules/HttpServer/www/health/logs.log";
-    int logFile = LogInit(path);
 
     while (1)
     {
