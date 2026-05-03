@@ -7,6 +7,8 @@ typedef struct  {
     int  port;
     uint16_t  ttl;
     char* cacheDir;
+    char* logFileWs;
+    char* logFileProxy;
     char** backends;
     uint16_t  backendCount;
 } Config;

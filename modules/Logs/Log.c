@@ -48,3 +48,20 @@ void PrintHttpResponse(const HTTPResponse *res) {
         printf("\n");
     }
 }
+
+void logWrite(int file, const char *level, const char *msg) {
+    char buf[1024];
+    
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    char timestamp[32];
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", t);
+
+    int len = snprintf(buf, sizeof(buf), "[%s] [%s] %s\n", timestamp, level, msg);
+    write(file, buf, len);
+}
+
+void LogInit(const char *path) {
+
+    int logFile = open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
+}
