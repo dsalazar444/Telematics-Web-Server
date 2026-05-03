@@ -109,6 +109,7 @@ void *worker(void *arg)
             if (CacheLookUp(cacheManager, proxyMessage->cacheKey, &cachedResponse))
             {
                 // HIT — enviar al cliente directo
+                LogWrite(logFile,LEVEL, "Cache HIT: File served from cache" );
                 SendHTTPResponse(client, &cachedResponse);
                 free(cachedResponse.body);
                 free(proxyMessage);

@@ -49,6 +49,7 @@ int main()
         FreeConfig(&config);
         return 1;
     }
+    LogWrite(logFile,LEVEL, "Cache Load: Loading keys to RAM" );
 
     pthread_t health_thread;
     pthread_create(&health_thread, NULL, HealthCheckLoop, healthCheckArgs);
