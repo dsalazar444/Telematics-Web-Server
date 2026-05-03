@@ -1,0 +1,222 @@
+[2026-05-03 15:59:22] [Main] 
+=== LoadBalancer Status ===
+Total backends: 2
+Current RR index: 0
+
+Backends:
+  [0] 127.0.0.1:8082 | healthy=YES | active_conn=0
+  [1] 127.0.0.1:8083 | healthy=NO | active_conn=0
+============================
+
+
+[2026-05-03 15:59:22] [Main] Cache Load: Loading keys to RAM
+[2026-05-03 15:59:33] [Cache] Method: 0
+Path: /index.html
+Version: HTTP/1.1
+Headers:
+  Host: 127.0.0.1:8081
+  User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0
+  Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+  Accept-Language: en-US,en;q=0.9
+  Accept-Encoding: gzip, deflate, br, zstd
+  Sec-GPC: 1
+  Connection: keep-alive
+  Cookie: csrftoken=Xvh9hjw7x4oV4S0mrIsErq6Bad9wEe8b; sessionid=a4dskbqhxwq6k9ykgpavwp0ha73rhna8
+  Upgrade-Insecure-Requests: 1
+  Sec-Fetch-Dest: document
+  Sec-Fetch-Mode: navigate
+  Sec-Fetch-Site: none
+  Sec-Fetch-User: ?1
+  If-Modified-Since: Sun, 03 May 2026 20:54:11 GMT
+  Priority: u=0, i
+No Body
+
+[2026-05-03 15:59:33] [Cache] Method: 0
+Path: /img/img1.jpg
+Version: HTTP/1.1
+Headers:
+  Host: 127.0.0.1:8081
+  User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0
+  Accept: image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5
+  Accept-Language: en-US,en;q=0.9
+  Accept-Encoding: gzip, deflate, br, zstd
+  Sec-GPC: 1
+  Connection: keep-alive
+  Referer: http://127.0.0.1:8081/
+  Cookie: csrftoken=Xvh9hjw7x4oV4S0mrIsErq6Bad9wEe8b; sessionid=a4dskbqhxwq6k9ykgpavwp0ha73rhna8
+  Sec-Fetch-Dest: image
+  Sec-Fetch-Mode: no-cors
+  Sec-Fetch-Site: same-origin
+  Priority: u=4, i
+No Body
+
+[2026-05-03 15:59:33] [Cache] Method: 0
+Path: /img/img2.jpg
+Version: HTTP/1.1
+Headers:
+  Host: 127.0.0.1:8081
+  User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0
+  Accept: image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5
+  Accept-Language: en-US,en;q=0.9
+  Accept-Encoding: gzip, deflate, br, zstd
+  Sec-GPC: 1
+  Connection: keep-alive
+  Referer: http://127.0.0.1:8081/
+  Cookie: csrftoken=Xvh9hjw7x4oV4S0mrIsErq6Bad9wEe8b; sessionid=a4dskbqhxwq6k9ykgpavwp0ha73rhna8
+  Sec-Fetch-Dest: image
+  Sec-Fetch-Mode: no-cors
+  Sec-Fetch-Site: same-origin
+  Priority: u=4, i
+No Body
+
+[2026-05-03 15:59:33] [Cache] Method: 0
+Path: /img/img3.jpg
+Version: HTTP/1.1
+Headers:
+  Host: 127.0.0.1:8081
+  User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0
+  Accept: image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5
+  Accept-Language: en-US,en;q=0.9
+  Accept-Encoding: gzip, deflate, br, zstd
+  Sec-GPC: 1
+  Connection: keep-alive
+  Referer: http://127.0.0.1:8081/
+  Cookie: csrftoken=Xvh9hjw7x4oV4S0mrIsErq6Bad9wEe8b; sessionid=a4dskbqhxwq6k9ykgpavwp0ha73rhna8
+  Sec-Fetch-Dest: image
+  Sec-Fetch-Mode: no-cors
+  Sec-Fetch-Site: same-origin
+  Priority: u=4, i
+No Body
+
+[2026-05-03 15:59:33] [Cache] Method: 0
+Path: /img/img4.jpg
+Version: HTTP/1.1
+Headers:
+  Host: 127.0.0.1:8081
+  User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0
+  Accept: image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5
+  Accept-Language: en-US,en;q=0.9
+  Accept-Encoding: gzip, deflate, br, zstd
+  Sec-GPC: 1
+  Connection: keep-alive
+  Referer: http://127.0.0.1:8081/
+  Cookie: csrftoken=Xvh9hjw7x4oV4S0mrIsErq6Bad9wEe8b; sessionid=a4dskbqhxwq6k9ykgpavwp0ha73rhna8
+  Sec-Fetch-Dest: image
+  Sec-Fetch-Mode: no-cors
+  Sec-Fetch-Site: same-origin
+  Priority: u=4, i
+No Body
+
+[2026-05-03 15:59:33] [Cache] Method: 0
+Path: /img/cat2.jpg
+Version: HTTP/1.1
+Headers:
+  Host: 127.0.0.1:8081
+  User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0
+  Accept: image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5
+  Accept-Language: en-US,en;q=0.9
+  Accept-Encoding: gzip, deflate, br, zstd
+  Sec-GPC: 1
+  Connection: keep-alive
+  Referer: http://127.0.0.1:8081/
+  Cookie: csrftoken=Xvh9hjw7x4oV4S0mrIsErq6Bad9wEe8b; sessionid=a4dskbqhxwq6k9ykgpavwp0ha73rhna8
+  Sec-Fetch-Dest: image
+  Sec-Fetch-Mode: no-cors
+  Sec-Fetch-Site: same-origin
+  If-Modified-Since: Sun, 03 May 2026 20:47:44 GMT
+  Priority: u=5
+No Body
+
+[2026-05-03 15:59:33] [Cache] Method: 0
+Path: /img/cat1.png
+Version: HTTP/1.1
+Headers:
+  Host: 127.0.0.1:8081
+  User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0
+  Accept: image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5
+  Accept-Language: en-US,en;q=0.9
+  Accept-Encoding: gzip, deflate, br, zstd
+  Sec-GPC: 1
+  Connection: keep-alive
+  Referer: http://127.0.0.1:8081/
+  Cookie: csrftoken=Xvh9hjw7x4oV4S0mrIsErq6Bad9wEe8b; sessionid=a4dskbqhxwq6k9ykgpavwp0ha73rhna8
+  Sec-Fetch-Dest: image
+  Sec-Fetch-Mode: no-cors
+  Sec-Fetch-Site: same-origin
+  If-Modified-Since: Sun, 03 May 2026 20:11:15 GMT
+  Priority: u=5
+No Body
+
+[2026-05-03 15:59:33] [Cache] Method: 0
+Path: /img/cat3.jpg
+Version: HTTP/1.1
+Headers:
+  Host: 127.0.0.1:8081
+  User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0
+  Accept: image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5
+  Accept-Language: en-US,en;q=0.9
+  Accept-Encoding: gzip, deflate, br, zstd
+  Sec-GPC: 1
+  Connection: keep-alive
+  Referer: http://127.0.0.1:8081/
+  Cookie: csrftoken=Xvh9hjw7x4oV4S0mrIsErq6Bad9wEe8b; sessionid=a4dskbqhxwq6k9ykgpavwp0ha73rhna8
+  Sec-Fetch-Dest: image
+  Sec-Fetch-Mode: no-cors
+  Sec-Fetch-Site: same-origin
+  If-Modified-Since: Sun, 03 May 2026 20:49:29 GMT
+  Priority: u=5
+No Body
+
+[2026-05-03 15:59:33] [Cache] Method: 0
+Path: /img/cat4.jpg
+Version: HTTP/1.1
+Headers:
+  Host: 127.0.0.1:8081
+  User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0
+  Accept: image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5
+  Accept-Language: en-US,en;q=0.9
+  Accept-Encoding: gzip, deflate, br, zstd
+  Sec-GPC: 1
+  Connection: keep-alive
+  Referer: http://127.0.0.1:8081/
+  Cookie: csrftoken=Xvh9hjw7x4oV4S0mrIsErq6Bad9wEe8b; sessionid=a4dskbqhxwq6k9ykgpavwp0ha73rhna8
+  Sec-Fetch-Dest: image
+  Sec-Fetch-Mode: no-cors
+  Sec-Fetch-Site: same-origin
+  If-Modified-Since: Sun, 03 May 2026 20:50:23 GMT
+  Priority: u=5
+No Body
+
+[2026-05-03 15:59:36] [Cache] Method: 0
+Path: /about.html
+Version: HTTP/1.1
+Headers:
+  Host: 127.0.0.1:8081
+  User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0
+  Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+  Accept-Language: en-US,en;q=0.9
+  Accept-Encoding: gzip, deflate, br, zstd
+  Sec-GPC: 1
+  Connection: keep-alive
+  Referer: http://127.0.0.1:8081/
+  Cookie: csrftoken=Xvh9hjw7x4oV4S0mrIsErq6Bad9wEe8b; sessionid=a4dskbqhxwq6k9ykgpavwp0ha73rhna8
+  Upgrade-Insecure-Requests: 1
+  Sec-Fetch-Dest: document
+  Sec-Fetch-Mode: navigate
+  Sec-Fetch-Site: same-origin
+  Sec-Fetch-User: ?1
+  If-Modified-Since: Sun, 03 May 2026 20:53:37 GMT
+  Priority: u=0, i
+No Body
+
+[2026-05-03 15:59:52] [Load Balancer] 
+=== LoadBalancer Status ===
+Total backends: 2
+Current RR index: 1
+
+Backends:
+  [0] 127.0.0.1:8082 | healthy=YES | active_conn=0
+  [1] 127.0.0.1:8083 | healthy=NO | active_conn=0
+============================
+
+

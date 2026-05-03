@@ -27,8 +27,7 @@ int main()
 
     printf("Servidor escuchando en puerto %d\n", config.port);
 
-    // TODO: Despues de obtener log_file, de comando, guardalo como puneto, y pasarlo como path
-    const char *path = "/ruta_falsa"; //-> obtenido de comando
+    const char *path = config.logFileProxy; 
     int logFile = LogInit(path);
 
     // Crear el LoadBalancer con los backends y el contador

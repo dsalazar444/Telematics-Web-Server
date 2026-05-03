@@ -3,7 +3,7 @@
 #include "CacheStoreWorker.h"
 #include "CacheIO.h"
 #include "CacheIndex.h"
-#include "Logs/Log.h"
+#include "../Logs/Log.h"
 
 #define CACHE_MAX_ENTRIES 1000
 

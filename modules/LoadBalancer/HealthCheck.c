@@ -65,7 +65,7 @@ bool HealthCheckBackend(IDBackendNode id)
     HTTPRequest request;
     memset(&request, 0, sizeof(request));
     request.method = HEAD;
-    snprintf(request.path, sizeof(request.path), "%s", "/health/logs.log");
+    snprintf(request.path, sizeof(request.path), "%s", "/health/health.html");
     snprintf(request.version, sizeof(request.version), "%s", "HTTP/1.1");
     request.headers.count = 1;
     snprintf(request.headers.headers[0].key, sizeof(request.headers.headers[0].key), "%s", "Host");
