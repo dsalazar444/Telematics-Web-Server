@@ -77,7 +77,8 @@ void *worker(void *arg)
         }
 
         PrintHttpRequest(request);
-        LogWrite(logFile, LEVEL, request);
+        const char *requestString = HttpRequestToString(request);
+        LogWrite(logFile, LEVEL, requestString);
 
         // 4. Allocar ProxyMessage
         ProxyMessage *proxyMessage = malloc(sizeof(*proxyMessage));

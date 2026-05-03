@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h>
-#include "modules/Logs/Log.h"
+#include "../../Logs/Log.h"
 
 #define LEVEL "Server"
 // Heredados desde Worker.h (ISocket.h)

@@ -29,7 +29,8 @@ void* WorkerRun(void* arg) {
     // recibir request
     HTTPRequest* req = RecvRequest(client);
     PrintHttpRequest(req);
-    LogWrite(logFile, LEVEL, req);
+    const char *reqString = HttpRequestToString(req);
+    LogWrite(logFile, LEVEL, reqString);
 
     // procesar
     HTTPResponse* res = ProcessRequest(req);
@@ -37,7 +38,8 @@ void* WorkerRun(void* arg) {
         res = ResponseError(500);
     }
     PrintHttpResponse(res);
-    LogWrite(logFile, LEVEL, res);
+    const char *resString = HttpResponseToString(res);
+    LogWrite(logFile, LEVEL, resString);
     
     // enviar response
     int sent = SendHTTPResponse(client, res);

@@ -34,7 +34,8 @@ int main()
     // Crear el LoadBalancer con los backends y el contador
     LoadBalancer *lb = LoadBalancerCreate(config.backends, config.backendCount);
     LoadBalancerPrint(lb);
-    LogWrite(logFile, LEVEL, lb);
+    const char *lbString = LoadBalancerToString(lb);
+    LogWrite(logFile, LEVEL, lbString);
 
     HealthCheckArgs *healthCheckArgs = malloc(sizeof(HealthCheckArgs));
     healthCheckArgs->lb = lb;

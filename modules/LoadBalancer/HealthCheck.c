@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "modules/Logs/Log.h"
+#include "../Logs/Log.h"
 
 #define HEALTH_CHECK_INTERVAL 5
 #define LEVEL "Load Balancer"
@@ -42,7 +42,8 @@ void *HealthCheckLoop(void *arg)
 
         printf("\033[2J\033[H");
         LoadBalancerPrint(lb); // opcional: mostrar estado
-        LogWrite(logFile, LEVEL, lb);
+        const char *lbString = LoadBalancerToString(lb);
+        LogWrite(logFile, LEVEL, lbString);
         fflush(stdout);
     }
     return NULL;
