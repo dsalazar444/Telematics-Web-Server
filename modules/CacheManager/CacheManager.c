@@ -267,6 +267,8 @@ void CacheInvalidateByRequest(CacheManager *cache, const HTTPRequest *request) {
     if (host == NULL)
         return;
 
+    // Para POST/PUT/DELETE: invalidar caché del mismo path completo
+    // Esto asume que GET /path puede tener datos que POST/PUT/DELETE /path modifican
     char rawKey[512];
     snprintf(rawKey, sizeof(rawKey), "GET|%s|%s",
              host,
@@ -275,6 +277,8 @@ void CacheInvalidateByRequest(CacheManager *cache, const HTTPRequest *request) {
     char cacheKey[33];
     MD5Hash(rawKey, cacheKey);
 
+    fprintf(stderr, "[Cache] Invalidando entrada por %s %s -> key=%s\n",
+            MethodToString(request->method), request->path, cacheKey);
     cacheInvalidate(cache, cacheKey);
 }
 
