@@ -6,4 +6,4 @@
 
 int SendHTTPResponse(IClientSocket *client, HTTPResponse *response);
 
-#endif // RESPONSE_SENDER_H
+#endif /

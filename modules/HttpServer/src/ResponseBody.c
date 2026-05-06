@@ -3,12 +3,12 @@
 #include <stdio.h>
 #include <string.h>
 
+// Genera HTML de error para respuestas de error HTTP
+// Pide: statusCode - código HTTP; statusMessage - mensaje de estado; outLen - para retornar tamaño
+// Retorna: buffer con malloc conteniendo HTML de error
 unsigned char* GenerateErrorBody(int statusCode, const char* statusMessage, size_t* outLen) {
 
-    char buffer[1024];//buffer local -> espacio estatico
-
-    // con buffer local, obtenemos el tamaño que debe tener un buffer para guardar nuestro mensaje html
-    // necesario para saber de que tamaño hacer malloc para body, que es buffer dinamico, y no desperdiciamos memoria
+    char buffer[1024];
     int len = snprintf(buffer, sizeof(buffer),
         "<!DOCTYPE html>\n"
         "<html>\n"
@@ -26,12 +26,15 @@ unsigned char* GenerateErrorBody(int statusCode, const char* statusMessage, size
     unsigned char* body = malloc(len + 1);
     if (body == NULL) return NULL;
 
-    // copiamos el contenido del buffer local al buffer dinamico body
+    // copiamos el contenido del buffer local al buffer dinamico 
     memcpy(body, buffer, len + 1);
-    *outLen = (size_t)len; // cambiamos valor en memoria donde apuntaba el puntero
+    *outLen = (size_t)len;
     return body;
 }
 
+// Genera HTML de éxito para POST 201 Created con link al recurso
+// Pide: location - URI del recurso creado; outLen - para retornar tamaño
+// Retorna: buffer con malloc conteniendo HTML de confirmación
 unsigned char* GenerateCreatedBody(const char* location, size_t* outLen) {
 
     char buffer[1024];
@@ -57,13 +60,12 @@ unsigned char* GenerateCreatedBody(const char* location, size_t* outLen) {
     return body;
 }
 
-// para code 200 en post, en get no se manda nada
+// Genera HTML de éxito para POST 200 OK
+// Pide: statusCode - código HTTP; statusMessage - mensaje de estado; outLen - para retornar tamaño
+// Retorna: buffer con malloc conteniendo HTML de confirmación
 unsigned char* GenerateSuccesfulBody(int statusCode, const char* statusMessage, size_t* outLen) {
 
-    char buffer[1024];//buffer local -> espacio estatico
-
-    // con buffer local, obtenemos el tamaño que debe tener un buffer para guardar nuestro mensaje html
-    // necesario para saber de que tamaño hacer malloc para body, que es buffer dinamico, y no desperdiciamos memoria
+    char buffer[1024];
     int len = snprintf(buffer, sizeof(buffer),
         "<!DOCTYPE html>\n"
         "<html>\n"
@@ -81,7 +83,6 @@ unsigned char* GenerateSuccesfulBody(int statusCode, const char* statusMessage, 
     unsigned char* body = malloc(len + 1);
     if (body == NULL) return NULL;
 
-    // copiamos el contenido del buffer local al buffer dinamico body
     memcpy(body, buffer, len + 1);
     *outLen = (size_t)len;
     return body;

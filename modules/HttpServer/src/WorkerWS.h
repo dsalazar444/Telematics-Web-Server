@@ -8,6 +8,6 @@ typedef struct {
     int logFile;
 } WorkerWSArgs;
 
-void* WorkerRun(void* arg);  // función del thread
+void* WorkerRun(void* arg);  
 
 #endif

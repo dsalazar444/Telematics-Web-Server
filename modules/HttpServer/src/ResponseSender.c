@@ -4,6 +4,9 @@
 #include <stdbool.h>
 #include <strings.h>
 
+// Envía todos los datos al cliente mediante bucle (maneja fragmentación)
+// Pide: client - socket del cliente; data - datos a enviar; length - tamaño de datos
+// Retorna: 0 si éxito, -1 si error
 static int SendAll(IClientSocket *client, const char *data, size_t length)
 {
     size_t sentTotal = 0;
@@ -20,6 +23,9 @@ static int SendAll(IClientSocket *client, const char *data, size_t length)
     return 0;
 }
 
+// Envía una línea de header con formato "key: value\r\n"
+// Pide: client - socket del cliente; key - nombre del header; value - valor del header
+// Retorna: 0 si éxito, -1 si error
 static int SendHeaderLine(IClientSocket *client, const char *key, const char *value)
 {
     if (SendAll(client, key, strlen(key)) < 0)
@@ -40,7 +46,9 @@ static int SendHeaderLine(IClientSocket *client, const char *key, const char *va
     return SendAll(client, "\r\n", 2);
 }
 
-// Serialize headers and send response (headers + body). Returns 0 on success, -1 on failure.
+// Envía una respuesta HTTP completa (status line + headers + body) al cliente
+// Pide: client - socket del cliente; response - respuesta HTTP a enviar
+// Retorna: 0 si éxito, -1 si error
 int SendHTTPResponse(IClientSocket *client, HTTPResponse *response)
 {
     if (!client || !response) return -1;

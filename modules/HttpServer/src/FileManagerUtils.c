@@ -1,4 +1,4 @@
-#define _POSIX_C_SOURCE 200112L // para clock_Realtime
+#define _POSIX_C_SOURCE 200112L // para clock_realtime
 
 #include "FileManagerUtils.h"
 #include <sys/stat.h>
@@ -8,13 +8,10 @@
 #include <time.h>
 #include <stdlib.h>
 
-// FUNCIÓN: funciones que trabajan con strings y metadata, no tocan contenido del archivo
-// _documentRoot es local a este módulo (static)
-
 typedef struct {
     const char* extension;
     const char* mimeType;
-} MimeEntry; // "dict" para tipo de dato segun extensión, y viceversa
+} MimeEntry;
 
 static const MimeEntry MIME_TABLE[] = {
     { ".html", "text/html" },
@@ -34,18 +31,22 @@ static const MimeEntry MIME_TABLE[] = {
 
 static char _documentRoot[MAX_PATH_LEN] = "../modules/HttpServer/www";
 
+// Establece la ruta raíz del documento
+// Pide: root - nueva ruta raíz
+// Retorna: nada
 void FileManagerSetRoot(const char* root) {
     strncpy(_documentRoot, root, MAX_PATH_LEN - 1);
     _documentRoot[MAX_PATH_LEN - 1] = '\0';
 }
 
-// Genera path completo, añadiendo ./www al absPath -> retorna 1 si éxito, 0 si falla (porque ruta muy larga)
+// Construye la ruta real del archivo (concatena root document con absPath)
+// Pide: absPath - ruta absoluta del cliente; outPath - buffer para la ruta real
+// Retorna: 1 si éxito, 0 si la ruta resultante excede MAX_PATH_LEN
 int BuildRealPath(const char* absPath, char* outPath) {
 
     int rootLen = strlen(_documentRoot);
     int pathLen = strlen(absPath);
 
-    // verificar que no superamos el límite
     if (rootLen + pathLen >= MAX_PATH_LEN) return 0;
 
     // construir ruta real
@@ -56,10 +57,11 @@ int BuildRealPath(const char* absPath, char* outPath) {
     return 1;
 }
 
-// Obtener tipo del body request con method get o head, puesto que estos no traen obligatoriamente content-type
+// Obtiene el tipo MIME basado en la extensión del archivo
+// Pide: path - ruta del archivo; outMime - buffer para el tipo MIME
+// Retorna: nada (outMime contiene el tipo MIME o "application/octet-stream" por defecto)
 void GetMimeTypeByExtension(const char* path, char* outMime) {
 
-    // buscar el último punto en el path
     const char* ext = strrchr(path, '.');
     
     if (ext != NULL) {
@@ -76,13 +78,14 @@ void GetMimeTypeByExtension(const char* path, char* outMime) {
     outMime[63] = '\0';
 }
 
-// Generamos nombre de archivo a crear con post, usando el timestamp, random byte y la extensión
-// Retorna 1 si éxito, 0 si el nombre excede MAX_PATH_LEN
+// Genera un nombre de archivo aleatorio basado en timestamp, random byte y extensión
+// Pide: contentType - tipo MIME para determinar la extensión; outFileName - buffer para el nombre
+// Retorna: 1 si éxito, 0 si el nombre resultante excede MAX_PATH_LEN
 int GenerateFileName(const char* contentType, char* outFileName) {
 
     const char* ext = ".bin";  // default
 
-    // generamos extensión (basado en contenttype, no en uri)
+    // generamos extensión (basado en contenttype)
     for (int i = 0; MIME_TABLE[i].mimeType != NULL; i++) {
         if (strcasecmp(contentType, MIME_TABLE[i].mimeType) == 0) {
             ext = MIME_TABLE[i].extension;
@@ -92,20 +95,23 @@ int GenerateFileName(const char* contentType, char* outFileName) {
 
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    int randomByte = rand() % 256;  // Genera byte aleatorio (0-255)
-    // verificamos que nueva url no exceda max_path_len porque habria desborde de buffer
+    int randomByte = rand() % 256;
+
     int written = snprintf(outFileName, MAX_PATH_LEN, "%ld%ld%d%s", (long)ts.tv_sec, (long)ts.tv_nsec, randomByte, ext);
     if (written < 0 || written >= MAX_PATH_LEN) {
         outFileName[0] = '\0';
         return 0;
     }
+
     return 1;
 }
 
+// Asegura que una ruta termina con barra inclinada
+// Pide: path - ruta a modificar
+// Retorna: 1 si éxito, 0 si no hay espacio para agregar la barra
 int EnsureTrailingSlash(char* path) {
     int len = strlen(path);
 
-    // ya termina en / → nada que hacer
     if (len > 0 && path[len - 1] == '/') return 1;
 
     // verificar que cabe el slash extra
@@ -116,7 +122,9 @@ int EnsureTrailingSlash(char* path) {
     return 1;
 }
 
-// Obtener fecha de ultima modificación de recurso solicitado
+// Obtiene la fecha de última modificación de un archivo en formato HTTP
+// Pide: pathStat - estructura stat del archivo; outDate - buffer para la fecha
+// Retorna: nada (outDate contiene la fecha o vacío si hay error)
 void GetLastModified(const struct stat* pathStat, char* outDate) {
     struct tm* tm = gmtime(&pathStat->st_mtime);
 

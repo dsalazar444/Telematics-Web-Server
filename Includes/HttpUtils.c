@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Busca el valor de un header en la lista por nombre (case-insensitive)
+// Pide: headers - lista de headers; key - nombre del header a buscar
+// Retorna: valor del header si existe, NULL si no
 const char* GetHeaderValue(const HTTPHeaders* headers, const char* key) {
     if (headers == NULL || key == NULL) return NULL;
 
@@ -14,6 +17,9 @@ const char* GetHeaderValue(const HTTPHeaders* headers, const char* key) {
     return NULL;
 }
 
+// Obtiene la frase de razón HTTP para un código de estado
+// Pide: statusCode - código HTTP (200, 404, 500, etc.)
+// Retorna: string con la frase descriptiva (ej: "OK", "Not Found")
 const char* GetReasonPhrase(int statusCode) {
     switch (statusCode) {
         case 200: return "OK";
@@ -31,6 +37,9 @@ const char* GetReasonPhrase(int statusCode) {
     }
 }
 
+// Libera la memoria de una respuesta HTTP
+// Pide: response - puntero a HTTPResponse a liberar
+// Retorna: nada
 void ResponseFree(HTTPResponse* response) {
     if (response) {
         if (response->body) {
@@ -41,6 +50,9 @@ void ResponseFree(HTTPResponse* response) {
     }
 }
 
+// Libera la memoria de un request HTTP
+// Pide: request - puntero a HTTPRequest a liberar
+// Retorna: nada
 void RequestFree(HTTPRequest* request) {
     if (request) {
         if (request->body) {
@@ -52,10 +64,9 @@ void RequestFree(HTTPRequest* request) {
 }
 
 
-// analiza buffer de la petición, y mira donde donde terminan los headers, y el tamaño del body, si lo incluye
-// retorna: 0 -> no hay final de headers -> no hay secuencia \r\n\r\
-// -1 -> si hay errores de formato (headers mal formateados, etc.)
-// 1 -> ok
+// Analiza un buffer de request y extrae tamaño de headers y body
+// Pide: requestBuffer - buffer con datos recibidos; headerSize - para retornar tamaño headers; contentLength - para retornar tamaño body
+// Retorna: 1 si ok, 0 si headers incompletos, -1 si formato inválido
 int GetRequestSizes(const char *requestBuffer, int *headerSize, int *contentLength)
 {
     const char *headersEnd = strstr(requestBuffer, "\r\n\r\n");

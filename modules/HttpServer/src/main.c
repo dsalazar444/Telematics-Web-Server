@@ -9,8 +9,10 @@
 #include "FileManager.h"
 
 #define LEVEL "Server"
-// Heredados desde Worker.h (ISocket.h)
 
+// Imprime la información útil para ejecutar comando
+// Pide: program_name - nombre del programa
+// Retorna: nada
 void print_usage(const char *program_name) {
     printf("Uso: %s [-l LOGFILE] [-p PORT]\n", program_name);
     printf("  -l, --logfile FILE    Archivo de log (por defecto: logs.log)\n");
@@ -19,12 +21,14 @@ void print_usage(const char *program_name) {
     printf("  -h, --help            Mostrar esta ayuda\n");
 }
 
+// Inicia el servidor HTTP: parsea argumentos, crea socket listener y acepta conexiones
+// Pide: argc, argv - argumentos de línea de comandos
+// Retorna: 0 si éxito, 1 si error
 int main(int argc, char *argv[]) {
     int port = 8083;
     char logFileName[256];
     char dir[256] = "modules/HttpServer/www";
     
-    // Definir opciones largas
     struct option long_options[] = {
         {"logfile", required_argument, 0, 'l'},
         {"port", required_argument, 0, 'p'},
@@ -68,7 +72,7 @@ int main(int argc, char *argv[]) {
     
     printf("Archivo de log: %s\n", logFileName);
     printf("Puerto: %d\n", port);
-    printf("Directorio de trabajo: %s\n", dir); // TODO: usar el dir pasado por argumento
+    printf("Directorio de trabajo: %s\n", dir);
     
     ISocketListener listener;
     listener.fd = CreateDualStackSocket();

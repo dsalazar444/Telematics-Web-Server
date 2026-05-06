@@ -7,21 +7,15 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-// Heredados desde FileManagerIO.h (sys/stat.h, stddef.h)
 
-// FUNCIÓN: funciones que abren, leen y escriben archivos:
+// FUNCIÓN: hace llamadas a SO
 
-// Verifica si url es una carpeta, si sí, busca si tiene index.html, y actualiza realPath si corresponde
-// retorna 1 si es directorio y encontró index.html
-// retorna 0 si no es directorio (no hace nada)
-// retorna -1 si es directorio pero no hay index.html
-// retorna -2 si uri too long
-// outsat es el stat() de un archivo o dir, que contiene info básica de él, dado por el OS
+// Verifica si una ruta es directorio y busca index.html dentro
+// Pide: realPath - ruta a verificar; outStat - estructura stat del recurso
+// Retorna: 1 si es directorio con index.html, 0 si no es directorio, -1 si es directorio pero sin index.html, -2 si ruta muy larga
 int HandleDirectory(char* realPath, struct stat* outStat) {
 
-    // ¿es un directorio?
     if (!S_ISDIR(outStat->st_mode)) return 0;
-    // es directorio → buscar index.html
 
     char indexPath[MAX_PATH_LEN];
     int  pathLen = strlen(realPath);
@@ -34,10 +28,8 @@ int HandleDirectory(char* realPath, struct stat* outStat) {
         written = snprintf(indexPath, MAX_PATH_LEN, "%s/index.html", realPath);
     }
 
-    // Verificar si fue truncada
     if (written < 0 || written >= MAX_PATH_LEN) {
-        return -2; // Ruta demasiado larga
-        // no se daña realPath porque se "copio" nueva ruta en indexPath, que no ha sido asignada a realPath
+        return -2;
     }
 
     // stat() del index.html → sobreescribe outStat
@@ -51,66 +43,59 @@ int HandleDirectory(char* realPath, struct stat* outStat) {
     return 1;
 }
 
+// Obtiene metadata del archivo (ruta real, stat, tipo MIME, última modificación)
+// Pide: absPath - ruta absoluta; outRealPath - ruta real construida; outStat - estructura stat; result - estructura para llenar
+// Retorna: 1 si éxito, 0 si hay error (statusCode se asigna en result)
 int GetFileMetadata(const char* absPath, char* outRealPath, struct stat* outStat, FileResult* result){
    
-    // 1. construir ruta real
-    //char realPath[MAX_PATH_LEN];
-    if (!BuildRealPath(absPath, outRealPath)) { // 1 exit, 0 -> ruta muy larga
-        result->_statusCode = 414; //al formar ruta completa pasada por client, esta es muy larga -> culpa de client
+    if (!BuildRealPath(absPath, outRealPath)) {
+        result->_statusCode = 414;
         return 0;
     }
     
-    // 2. stat() — una sola vez -> si no se puede obtener -> archivo/dir no existe -> 404
-    //struct stat pathStat;
     if (stat(outRealPath, outStat) != 0) {
-        result->_statusCode = 404;
+        result->_statusCode = 404; // Archivo no existe
         return 0;
     }
 
-    // 3. manejar directorio — puede modificar realPath y pathStat (1 si index, 0 si ~dir, -1 si no index, -2 si uri too long)
     int dirResult = HandleDirectory(outRealPath, outStat);
     if (dirResult == -1) {
-        result->_statusCode = 404; // Dir no tenia index.html -> not found
+        result->_statusCode = 404; //Index no existe
         return 0;
     } else if (dirResult == -2){
-        result->_statusCode = 414; // uri too long
+        result->_statusCode = 414;
         return 0;
     }
 
-    // 4. verificar que es archivo regular
     if (!S_ISREG(outStat->st_mode)) {
         result->_statusCode = 404;
         return 0;
     }
 
-    // si llega hasta acá, y era una ruta de dir, ya estamos trabajando con el index de esa dir
-    // 5. Metadata
-    GetMimeTypeByExtension(outRealPath, result->_mimeType); // porque retornaré recurso solicitado, no html message
+    GetMimeTypeByExtension(outRealPath, result->_mimeType); 
     GetLastModified(outStat, result->_lastModified);
     
     return 1;
 
 }
 
-// pathStat es la info del archivo
+// Lee el contenido completo del archivo
+// Pide: realPath - ruta real del archivo; pathStat - estructura stat del archivo; result - estructura para llenar
+// Retorna: 1 si éxito, 0 si hay error
 int ReadFile(const char* realPath, const struct stat* pathStat, FileResult* result) {
-    // tamaño exacto del archivo desde stat
     size_t fileSize = pathStat->st_size;
 
-    // abrir archivo en modo binario
     FILE* file = fopen(realPath, "rb");
     if (file == NULL){
         return 0;
     } 
 
-    // malloc del tamaño exacto
     result->_content = malloc(fileSize); 
-    if (result->_content == NULL) {// problema de memoria (malloc falló)
+    if (result->_content == NULL) {
         fclose(file);
         return 0;
     }
 
-    // leer todos los bytes de una vez
     size_t bytesRead = fread(result->_content, 1, fileSize, file);
     fclose(file);
 
@@ -118,7 +103,6 @@ int ReadFile(const char* realPath, const struct stat* pathStat, FileResult* resu
     if (bytesRead != fileSize) {
         free(result->_content);
         result->_content = NULL;
-        // contentLen es por default 0, por eso no se pone
         return 0;
     }
 
@@ -126,26 +110,28 @@ int ReadFile(const char* realPath, const struct stat* pathStat, FileResult* resu
     return 1;
 }
 
-// --------------------- POST -------------------------------
-// Verifica que, la carpeta indicada en la uri, en donde nos piden hacer el post, exista
+// --------------------- POST FUNCTIONS -------------------------------
+
+// Verifica si una carpeta existe
+// Pide: realDirPath - ruta real de la carpeta
+// Retorna: 1 si existe y es directorio, 0 si no
 int CheckDirExists(const char* realDirPath) {
 
     struct stat pathStat;
-    //if (stat(realDirPath, &pathStat) != 0) return 0;
     if (stat(realDirPath, &pathStat) != 0)  return 0;
     if (!S_ISDIR(pathStat.st_mode)) return 0;
 
     return 1;
 }
 
-// Extrae la carpeta padre del path (busca el último '/')
-// Ejm: "./www/uploads/archivo.txt" -> "./www/uploads"
-// Retorna 1 si éxito, 0 si no encuentra '/' o ruta muy corta
+// Extrae la carpeta padre de una ruta
+// Pide: filePath - ruta completa del archivo
+// Retorna: 1 si éxito, 0 si no hay carpeta padre válida
+// Nota: outParentDir contiene la ruta padre sin el nombre del archivo
 int GetParentDir(const char* filePath, char* outParentDir) {
 
-    // Buscar el último '/'
     const char* lastSlash = strrchr(filePath, '/');
-    if (lastSlash == NULL) return 0; // No hay '/' → sin carpeta padre válida
+    if (lastSlash == NULL) return 0; 
     
     // copiamos en outparentDir
     int parentLen = lastSlash - filePath;     
@@ -155,19 +141,18 @@ int GetParentDir(const char* filePath, char* outParentDir) {
     return 1;
 }
 
-
+// Escribe contenido en un archivo (crea si no existe, añade si existe)
+// Pide: realPath - ruta del archivo; body - contenido a escribir; bodyLen - tamaño del contenido; outIsNew - indica si fue nuevo
+// Retorna: 1 si éxito, 0 si hay error
 int WriteFile(const char* realPath, const char* body, size_t bodyLen, int* outIsNew) {
     
-    // verificar si el archivo ya existe
     struct stat pathStat;
-    *outIsNew = (stat(realPath, &pathStat) != 0) ? 1 : 0; // si stat falla → archivo no existe → es nuevo
+    *outIsNew = (stat(realPath, &pathStat) != 0) ? 1 : 0;
 
     // abrir en modo binario append
-    // "ab" → crea si no existe, añade si existe
     FILE* file = fopen(realPath, "ab");
     if (file == NULL) return 0;
 
-    // escribir body
     size_t bytesWritten = fwrite(body, 1, bodyLen, file);
     fflush(file);
     fsync(fileno(file));

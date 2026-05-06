@@ -4,12 +4,13 @@
 #include "http.h"
 #include <stdbool.h>
 
+// Mensaje de proxy: encapsula response, request, configuración de caché y replicación
 typedef struct {
-    HTTPResponse response;
-    const HTTPRequest *request;
-    char         cacheKey[33];
-    bool         shouldCache;
-    bool         shouldReplicate;
+    HTTPResponse response;           // La respuesta HTTP a enviar
+    const HTTPRequest *request;      // El request original del cliente
+    char         cacheKey[33];       // Clave para el caché (MD5 hash)
+    bool         shouldCache;        // Indica si debe cachearse la response
+    bool         shouldReplicate;    // Indica si debe replicarse a otros servidores
 } ProxyMessage;
 
 #endif

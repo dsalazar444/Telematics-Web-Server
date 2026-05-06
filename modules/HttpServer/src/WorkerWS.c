@@ -6,11 +6,7 @@
 #include "../../Logs/Log.h"
 
 #define LEVEL "Server"
-// Heredados desde Worker.h (ISocket.h)
-// Heredados desde HttpParser.h (http.h)
-// Heredados desde ResponseSender.h (Response.h, Socket.h)
 
-// Forward declarations
 static HTTPRequest* RecvRequest(IClientSocket* client);
 static HTTPResponse* ProcessRequest(const HTTPRequest* req);
 static HTTPResponse* HandleGet(const char* path);
@@ -18,13 +14,15 @@ static HTTPResponse* HandleHead(const char* path);
 static HTTPResponse* HandlePost(const HTTPRequest* req, const char* path);
 void PrintHttpResponse(const HTTPResponse *res);
 
+// Ejecuta el thread worker: recibe request, procesa y envía response
+// Pide: arg - puntero a WorkerWSArgs con cliente y logFile
+// Retorna: NULL al terminar el thread
 void* WorkerRun(void* arg) {
 
-    // casteamos arg a tipo real
     WorkerWSArgs *workerArgs = (WorkerWSArgs*)arg;
     IClientSocket *client = workerArgs->client;
     int logFile = workerArgs->logFile;
-    free(arg);  // liberar el malloc de main
+    free(arg);
 
     // recibir request
     HTTPRequest* req = RecvRequest(client);
@@ -32,30 +30,30 @@ void* WorkerRun(void* arg) {
     const char *reqString = HttpRequestToString(req);
     LogWrite(logFile, LEVEL, reqString);
 
-    // procesar
     HTTPResponse* res = ProcessRequest(req);
     if (res == NULL) {
         res = ResponseError(500);
     }
+
     PrintHttpResponse(res);
     const char *resString = HttpResponseToString(res);
     LogWrite(logFile, LEVEL, resString);
     
-    // enviar response
+    // enviar
     int sent = SendHTTPResponse(client, res);
     if (sent < 0) {
-        // Hubo un error al enviar la respuesta
         perror("Fallo al enviar respuesta al cliente");
-        // Puedes cerrar el socket o intentar reenviar, etc.
     }
 
-    // limpiar
     RequestFree(req);
     ResponseFree(res);
     CloseClientSocket(client);
     return NULL;
 }
 
+// Recibe un request HTTP completo del cliente con manejo de fragmentación
+// Pide: client - socket del cliente
+// Retorna: puntero a HTTPRequest parseado y validado
 static HTTPRequest* RecvRequest(IClientSocket* client) {
 
     char buffer[4096]; // recibe datos de socket
@@ -64,12 +62,11 @@ static HTTPRequest* RecvRequest(IClientSocket* client) {
 
     while (1)
     {
-
-        memset(buffer, 0, sizeof(buffer)); //limpiamos buffer con \0 desde i= tamaño
+        memset(buffer, 0, sizeof(buffer)); //limpiar buffer
         int bytes = RecvFromClient(client, buffer, sizeof(buffer));
         if (bytes <= 0) break;
 
-        memcpy(requestBuffer + requestLen, buffer, bytes); //copiamos nuevo bloque (de buffer) en requesBuffer despues de lo que tenia ya "escrito"
+        memcpy(requestBuffer + requestLen, buffer, bytes); //copiamos nuevo bloque
         requestLen += bytes;
         requestBuffer[requestLen] = '\0';
 
@@ -77,13 +74,12 @@ static HTTPRequest* RecvRequest(IClientSocket* client) {
         int contentLength = 0;
         int requestInfoStatus = GetRequestSizes(requestBuffer, &headerSize, &contentLength); // mira si ya tiene headers completos, y cuanto body debe esperar
 
-        // no hay más validaciones pues las hace el LB
-        if (requestInfoStatus == 0) continue;// todavia faltan headers (no hay secuencia \r\n\r\)
+        if (requestInfoStatus == 0) continue; // faltan headers
 
         int expectedSize = headerSize + contentLength;
-        if (requestLen < expectedSize) continue;// todavia falta info
-    
-        // Ya tenemos la petición completa (headers)
+        if (requestLen < expectedSize) continue;
+        
+        // ya tenemos request completo
         unsigned short statusCode = 0;
         HTTPRequest *request = ParseHTTPRequest(requestBuffer, headerSize, contentLength, &statusCode);
      
@@ -92,17 +88,20 @@ static HTTPRequest* RecvRequest(IClientSocket* client) {
             // limpiamos
             requestLen = 0;
             memset(requestBuffer, 0, sizeof(requestBuffer));
-            continue; //esperamos otra petición
+            continue;
          }
         
         // Limpiar buffer para la siguiente petición
         requestLen = 0;
         memset(requestBuffer, 0, sizeof(requestBuffer));
 
-        return request; //solo retorna request bueno
+        return request;
     }
 }
 
+// Procesa el request y delega al handler según el método HTTP
+// Pide: req - request HTTP parseado
+// Retorna: puntero a HTTPResponse apropiado
 static HTTPResponse* ProcessRequest(const HTTPRequest* req) {
     
     // obtenemos path
@@ -110,7 +109,6 @@ static HTTPResponse* ProcessRequest(const HTTPRequest* req) {
     strncpy(path, req->path, sizeof(path) - 1);
     path[255] = '\0';
 
-    // obtenemos el metodo del req
     switch (req->method) {
         case GET:     return HandleGet(path);
         case HEAD:    return HandleHead(path);
@@ -119,13 +117,19 @@ static HTTPResponse* ProcessRequest(const HTTPRequest* req) {
     }
 }
 
+// Maneja un request GET: obtiene archivo y construye response
+// Pide: path - ruta del archivo solicitado
+// Retorna: puntero a HTTPResponse con el contenido
 static HTTPResponse* HandleGet(const char* path) {
-    FileResult* fileResult = FileGet(path); // obtiene struct con atributos necesarios para construir el response
+    FileResult* fileResult = FileGet(path);
     HTTPResponse* res = ResponseGet(fileResult);
     FileResultFree(fileResult);
     return res;
 }
 
+// Maneja un request HEAD: obtiene metadata y construye response sin body
+// Pide: path - ruta del archivo solicitado
+// Retorna: puntero a HTTPResponse sin contenido
 static HTTPResponse* HandleHead(const char* path) {
     FileResult* fileResult = FileHead(path);
     HTTPResponse* res = ResponseHead(fileResult);
@@ -133,14 +137,15 @@ static HTTPResponse* HandleHead(const char* path) {
     return res;
 }
 
+// Maneja un request POST: valida headers, escribe archivo y construye response
+// Pide: req - request HTTP completo; path - ruta donde guardar
+// Retorna: puntero a HTTPResponse con status 201/200 o error
 static HTTPResponse* HandlePost(const HTTPRequest* req, const char* path) {
-    // Content-Type es obligatorio en POST — RFC §7.2.1
     const char* contentType = GetHeaderValue(&req->headers, "Content-Type");
     if (contentType == NULL) return ResponseError(400);
 
-    // Content-Length es obligatorio en POST — RFC §4.4
     const char* contentLen = GetHeaderValue(&req->headers, "Content-Length");
-    if (contentLen == NULL) return ResponseError(411);  // 411 Length Required
+    if (contentLen == NULL) return ResponseError(411);
     
     FileResult* fileResult = FilePost(path, (const char*)req->body, req->bodyLength, contentType);
     HTTPResponse* res = ResponsePost(req, fileResult);

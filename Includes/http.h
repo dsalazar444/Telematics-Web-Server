@@ -20,11 +20,13 @@ typedef struct {
     char value[256];
 } HTTPHeader;
 
+// Colección de headers HTTP
 typedef struct {
     HTTPHeader headers[100];
     size_t count;
 } HTTPHeaders;
 
+// Estructura de un request HTTP
 typedef struct {
     HTTPMethod method;
     char path[256];
@@ -34,6 +36,7 @@ typedef struct {
     char version[10];
 } HTTPRequest;
 
+// Estructura de una response HTTP
 typedef struct {
     int statusCode;
     char statusMessage[64];
@@ -42,6 +45,6 @@ typedef struct {
     size_t bodyLength; 
 } HTTPResponse;
 
-#endif // STRUCTS_H
+#endif
 
 
