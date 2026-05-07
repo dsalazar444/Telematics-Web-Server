@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <sys/select.h>
 #include "../HttpParser/HttpResponseParser.h"
+#include "../HttpParser/HttpParser.h"
 
 int SetIPv6Only(int fd, int enable)
 {
@@ -337,6 +338,9 @@ int SetClientNonBlocking(IClientSocket *client, int enable)
     return 0;
 }
 
+// Envía un HTTPRequest completo a través del socket (headers + body)
+// Pide: socket - socket del cliente; request - puntero al HTTPRequest a enviar
+// Retorna: 0 si éxito, -1 si error
 int SendHTTPRequest(IClientSocket *socket, const HTTPRequest *request)
 {
     if (socket == NULL || request == NULL)
@@ -345,85 +349,25 @@ int SendHTTPRequest(IClientSocket *socket, const HTTPRequest *request)
         return -1;
     }
 
-    // Convertir HTTPMethod enum a string
-    const char *methodStr = "GET"; // default
-    switch (request->method)
-    {
-    case GET:
-        methodStr = "GET";
-        break;
-    case POST:
-        methodStr = "POST";
-        break;
-    case PUT:
-        methodStr = "PUT";
-        break;
-    case DELETE:
-        methodStr = "DELETE";
-        break;
-    case HEAD:
-        methodStr = "HEAD";
-        break;
-    case OPTIONS:
-        methodStr = "OPTIONS";
-        break;
-    case CONNECT:
-        methodStr = "CONNECT";
-        break;
-    case TRACE:
-        methodStr = "TRACE";
-        break;
-    default:
-        fprintf(stderr, "SendHTTPRequest: HTTPMethod desconocido (%d)\n", request->method);
-        return -1;
-    }
-
     // Buffer para construir la petición HTTP
     char httpBuffer[8192];
-    size_t offset = 0;
 
-    // PASO 1: Construir línea de petición: "METHOD /path HTTP/version\r\n"
-    offset += snprintf(httpBuffer + offset, sizeof(httpBuffer) - offset,
-                       "%s %s %s\r\n",
-                       methodStr, request->path, request->version);
-
-    if (offset >= sizeof(httpBuffer))
+    // PASO 1: Serializar el request a buffer
+    int bufferSize = SerializeHTTPRequest(request, httpBuffer, sizeof(httpBuffer));
+    if (bufferSize < 0)
     {
-        fprintf(stderr, "SendHTTPRequest: buffer insuficiente para línea inicial\n");
+        fprintf(stderr, "SendHTTPRequest: fallo al serializar request\n");
         return -1;
     }
 
-    // PASO 2: Añadir headers
-    // Recorrer cada header en la estructura HTTPHeaders
-    for (size_t i = 0; i < request->headers.count; i++)
-    {
-        // Verificar que no nos salimos del buffer
-        if (offset + 512 >= sizeof(httpBuffer))
-        {
-            fprintf(stderr, "SendHTTPRequest: buffer insuficiente para headers\n");
-            return -1;
-        }
-
-        // Añadir: "Key: Value\r\n"
-        offset += snprintf(httpBuffer + offset, sizeof(httpBuffer) - offset,
-                           "%s: %s\r\n",
-                           request->headers.headers[i].key,
-                           request->headers.headers[i].value);
-    }
-
-    // PASO 3: Añadir línea separadora vacía: "\r\n"
-    // Esto marca el fin de headers y el inicio del body (si lo hay)
-    offset += snprintf(httpBuffer + offset, sizeof(httpBuffer) - offset, "\r\n");
-
-    // PASO 4: Enviar headers
-    // Usar SendToClient que maneja errores perror()
-    if (SendToClient(socket, httpBuffer, (int)offset) < 0)
+    // PASO 2: Enviar headers
+    if (SendToClient(socket, httpBuffer, bufferSize) < 0)
     {
         fprintf(stderr, "SendHTTPRequest: fallo al enviar headers\n");
         return -1;
     }
 
-    // PASO 5: Si hay body, enviarlo
+    // PASO 3: Si hay body, enviarlo
     // El body es binario, así que se envía tal cual sin procesamiento
     if (request->body != NULL && request->bodyLength > 0)
     {
@@ -438,8 +382,9 @@ int SendHTTPRequest(IClientSocket *socket, const HTTPRequest *request)
     return 0;
 }
 
-//TODO Revisar de qui pa abajo
 // Helper: buscar "\r\n\r\n" en un buffer
+// Pide: buffer - puntero al buffer de texto; len - longitud del buffer
+// Retorna: puntero a la posición del buffer donde termina el header (justo antes de "\r\n\r\n"), o NULL si no se encuentra
 static char *FindHeadersEnd(const char *buffer, size_t len)
 {
     for (size_t i = 0; i + 3 < len; i++)
@@ -451,151 +396,6 @@ static char *FindHeadersEnd(const char *buffer, size_t len)
         }
     }
     return NULL;
-}
-
-static void TrimSpaces(const char **start, const char **end)
-{
-    while (*start < *end && (**start == ' ' || **start == '\t'))
-    {
-        (*start)++;
-    }
-
-    while (*end > *start && ((*(*end - 1) == ' ') || (*(*end - 1) == '\t')))
-    {
-        (*end)--;
-    }
-}
-
-// TODO: revisar esta función
-static int ParseResponseHead(const char *buffer,
-                             size_t headerLen,
-                             int *statusCode,
-                             char *statusMessage,
-                             size_t statusMessageSize,
-                             HTTPHeaders *headers)
-{
-    if (buffer == NULL || statusCode == NULL || statusMessage == NULL || headers == NULL)
-    {
-        return -1;
-    }
-
-    headers->count = 0;
-    statusMessage[0] = '\0';
-
-    const char *cursor = buffer;
-    const char *headEnd = buffer + headerLen;
-
-    const char *firstLineEnd = NULL;
-    for (const char *p = cursor; p + 1 < headEnd; p++)
-    {
-        if (p[0] == '\r' && p[1] == '\n')
-        {
-            firstLineEnd = p;
-            break;
-        }
-    }
-
-    if (firstLineEnd == NULL)
-    {
-        return -1;
-    }
-
-    size_t firstLineLen = (size_t)(firstLineEnd - cursor);
-    if (firstLineLen >= 512)
-    {
-        firstLineLen = 511;
-    }
-
-    char statusLine[512];
-    memcpy(statusLine, cursor, firstLineLen);
-    statusLine[firstLineLen] = '\0';
-
-    int major = 0;
-    int minor = 0;
-    int code = 0;
-    char reason[256] = {0};
-    int parsed = sscanf(statusLine, "HTTP/%d.%d %d %255[^\r\n]", &major, &minor, &code, reason);
-    if (parsed < 3)
-    {
-        return -1;
-    }
-
-    *statusCode = code;
-    if (parsed >= 4)
-    {
-        snprintf(statusMessage, statusMessageSize, "%s", reason);
-    }
-
-    cursor = firstLineEnd + 2;
-    while (cursor < headEnd)
-    {
-        if ((headEnd - cursor) >= 2 && cursor[0] == '\r' && cursor[1] == '\n')
-        {
-            break;
-        }
-
-        const char *lineEnd = NULL;
-        for (const char *p = cursor; p + 1 < headEnd; p++)
-        {
-            if (p[0] == '\r' && p[1] == '\n')
-            {
-                lineEnd = p;
-                break;
-            }
-        }
-
-        if (lineEnd == NULL)
-        {
-            break;
-        }
-
-        const char *colon = NULL;
-        for (const char *p = cursor; p < lineEnd; p++)
-        {
-            if (*p == ':')
-            {
-                colon = p;
-                break;
-            }
-        }
-
-        if (colon != NULL && headers->count < 100)
-        {
-            const char *keyStart = cursor;
-            const char *keyEnd = colon;
-            const char *valueStart = colon + 1;
-            const char *valueEnd = lineEnd;
-
-            TrimSpaces(&keyStart, &keyEnd);
-            TrimSpaces(&valueStart, &valueEnd);
-
-            if (keyEnd > keyStart)
-            {
-                size_t keyLen = (size_t)(keyEnd - keyStart);
-                size_t valueLen = (size_t)(valueEnd - valueStart);
-
-                if (keyLen > 255)
-                {
-                    keyLen = 255;
-                }
-                if (valueLen > 255)
-                {
-                    valueLen = 255;
-                }
-
-                HTTPHeader *header = &headers->headers[headers->count];
-                memcpy(header->key, keyStart, keyLen);
-                header->key[keyLen] = '\0';
-                memcpy(header->value, valueStart, valueLen);
-                header->value[valueLen] = '\0';
-                headers->count++;
-            }
-        }
-
-        cursor = lineEnd + 2;
-    }
-
-    return 0;
 }
 
 HTTPResponse ReadHTTPResponse(IClientSocket *backend)
@@ -660,12 +460,12 @@ HTTPResponse ReadHTTPResponse(IClientSocket *backend)
                  * la posición del '\r' de la primera secuencia "\r\n\r\n",
                  * por lo que debemos sumar 2 para incluir el primer CRLF. */
                 size_t headerLen = (size_t)(headersEnd - accumulator) + 2;
-                if (ParseResponseHead(accumulator,
-                                      headerLen,
-                                      &statusCode,
-                                      statusMessage,
-                                      sizeof(statusMessage),
-                                      &parsedHeaders) == 0)
+                if (ParseHTTPResponseHead(accumulator,
+                                          headerLen,
+                                          &statusCode,
+                                          statusMessage,
+                                          sizeof(statusMessage),
+                                          &parsedHeaders) == 0)
                 {
                     parseOk = 1;
                 }

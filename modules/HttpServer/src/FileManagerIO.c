@@ -131,10 +131,10 @@ int CheckDirExists(const char* realDirPath) {
 int GetParentDir(const char* filePath, char* outParentDir) {
 
     const char* lastSlash = strrchr(filePath, '/');
-    if (lastSlash == NULL) return 0; 
+    if (lastSlash == NULL) return 0;
     
     // copiamos en outparentDir
-    int parentLen = lastSlash - filePath;     
+    int parentLen = lastSlash - filePath;
     strncpy(outParentDir, filePath, parentLen);
     outParentDir[parentLen] = '\0';
     

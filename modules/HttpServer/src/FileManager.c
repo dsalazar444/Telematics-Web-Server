@@ -130,13 +130,13 @@ FileResult* FilePost(const char* absPath, const char* body, size_t bodyLen, cons
             return result;
         }
         // Llenar location con ruta de nuevo archivo
-        snprintf(result->_location, MAX_PATH_LEN, "%s%s", absPath, fileName); 
+        snprintf(result->_location, MAX_PATH_LEN, "%s%s", absPath, fileName);
     }
     // CASO 2: Archivo existente o nuevo (ruta general puede no existir, pero carpeta padre debe existir)
     else {
         // Verificar que la carpeta padre existe
         char parentDirPath[MAX_PATH_LEN];
-        if (!GetParentDir(realPath, parentDirPath) || !CheckDirExists(parentDirPath)) {           
+        if (!GetParentDir(realPath, parentDirPath) || !CheckDirExists(parentDirPath)) {
             result->_statusCode = 404;
             return result;
         }

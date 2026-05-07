@@ -8,5 +8,11 @@
 
 
 bool BuildHTTPResponse(HTTPResponse *response,int statusCode,const char *statusMessage,HTTPHeaders *headers,unsigned char *body,size_t bodyLength);
+int ParseHTTPResponseHead(const char *buffer,
+						  size_t headerLen,
+						  int *statusCode,
+						  char *statusMessage,
+						  size_t statusMessageSize,
+						  HTTPHeaders *headers);
 
 #endif // HTTP_RESPONSE_PARSER_H

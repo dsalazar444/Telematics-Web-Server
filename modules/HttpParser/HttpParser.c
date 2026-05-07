@@ -192,3 +192,85 @@ HTTPMethod ParseMethod(const char *method)
         return TRACE;
     return -1;
 }
+
+// Helper: convertir HTTPMethod enum a string
+// Pide: method - valor del enum HTTPMethod
+// Retorna: cadena de texto correspondiente al método HTTP, o NULL si el método es desconocido
+static const char *MethodToString(HTTPMethod method)
+{
+    switch (method)
+    {
+    case GET:
+        return "GET";
+    case POST:
+        return "POST";
+    case PUT:
+        return "PUT";
+    case DELETE:
+        return "DELETE";
+    case HEAD:
+        return "HEAD";
+    case OPTIONS:
+        return "OPTIONS";
+    case CONNECT:
+        return "CONNECT";
+    case TRACE:
+        return "TRACE";
+    default:
+        return NULL;
+    }
+}
+
+// Serializa un HTTPRequest a un buffer de texto para enviar por socket
+// Pide: request - puntero al HTTPRequest a serializar; buffer - buffer donde se va a escribir la representación textual; bufferSize - tamaño del buffer
+// Retorna: número de bytes escritos en el buffer, o -1 si hay error (parámetros inválidos o buffer insuficiente)
+int SerializeHTTPRequest(const HTTPRequest *request, char *buffer, int bufferSize)
+{
+    if (request == NULL || buffer == NULL || bufferSize <= 0)
+    {
+        fprintf(stderr, "SerializeHTTPRequest: parámetros inválidos\n");
+        return -1;
+    }
+
+    const char *methodStr = MethodToString(request->method);
+    if (methodStr == NULL)
+    {
+        fprintf(stderr, "SerializeHTTPRequest: HTTPMethod desconocido (%d)\n", request->method);
+        return -1;
+    }
+
+    size_t offset = 0;
+
+    // PASO 1: Construir línea de petición: "METHOD /path HTTP/version\r\n"
+    offset += snprintf(buffer + offset, bufferSize - offset,
+                       "%s %s %s\r\n",
+                       methodStr, request->path, request->version);
+
+    if (offset >= (size_t)bufferSize)
+    {
+        fprintf(stderr, "SerializeHTTPRequest: buffer insuficiente para línea inicial\n");
+        return -1;
+    }
+
+    // PASO 2: Añadir headers
+    for (size_t i = 0; i < request->headers.count; i++)
+    {
+        // Verificar que no nos salimos del buffer
+        if (offset + 512 >= (size_t)bufferSize)
+        {
+            fprintf(stderr, "SerializeHTTPRequest: buffer insuficiente para headers\n");
+            return -1;
+        }
+
+        // Añadir: "Key: Value\r\n"
+        offset += snprintf(buffer + offset, bufferSize - offset,
+                           "%s: %s\r\n",
+                           request->headers.headers[i].key,
+                           request->headers.headers[i].value);
+    }
+
+    // PASO 3: Añadir línea separadora vacía: "\r\n"
+    offset += snprintf(buffer + offset, bufferSize - offset, "\r\n");
+
+    return (int)offset;
+}
