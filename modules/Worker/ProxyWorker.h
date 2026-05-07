@@ -15,16 +15,16 @@
 #include "../../Includes/http.h"
 #include "../../Includes/ISocket.h"
 
+// Estructura para pasar argumentos al worker
 typedef struct {
     IClientSocket *client;
-    LoadBalancer *lb;   // Compartido entre todos los workers
-    CacheManager *cacheManager;       // Puntero a la caché compartida
-    int logFile; // int que da write en logInit() 
+    LoadBalancer *lb;  
+    CacheManager *cacheManager;       
+    int logFile; 
 } WorkerArgs;
 
 void* worker(void* arg);
 void ConnectToBackendAndForward(WorkerArgs *w, ProxyMessage *message);
 void PrintHttpRequest(const HTTPRequest *request);
-//int GetRequestSizes(const char *requestBuffer, int *headerSize, int *contentLength);
 
 #endif // PROXY_WORKER_H

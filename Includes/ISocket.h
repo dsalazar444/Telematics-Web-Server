@@ -6,12 +6,13 @@
 typedef struct IClientSocket IClientSocket;
 typedef struct ISocketListener ISocketListener;
 
-// Socket cliente para comunicación con un cliente
+// Estructura para representar un socket del cliente
 struct IClientSocket
 {
     int fd;
 };
 
+// Estructura para representar un socket de escucha
 struct ISocketListener
 {
     int fd;

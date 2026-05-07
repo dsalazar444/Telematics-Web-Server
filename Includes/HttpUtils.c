@@ -69,12 +69,14 @@ void RequestFree(HTTPRequest* request) {
 // Retorna: 1 si ok, 0 si headers incompletos, -1 si formato inválido
 int GetRequestSizes(const char *requestBuffer, int *headerSize, int *contentLength)
 {
+    // Buscar el final de los headers (\r\n\r\n)
     const char *headersEnd = strstr(requestBuffer, "\r\n\r\n");
     if (headersEnd == NULL)
     {
         return 0;
     }
 
+    // Calcula tamaño del header (hasta \r\n\r\n) y busca Content-Length
     *headerSize = (int)(headersEnd - requestBuffer) + 4;
     *contentLength = 0;
     const char *lineStart = strstr(requestBuffer, "\r\n");
