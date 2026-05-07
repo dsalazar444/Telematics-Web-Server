@@ -228,7 +228,7 @@ void ConnectToBackendAndForward(WorkerArgs *workerArgs, ProxyMessage *message)
 
     message->response = response;
 
-    if (response.statusCode != 200)
+    if (response.statusCode != 200 && response.statusCode != 201)
     {
         message->shouldCache = false;
         message->shouldReplicate = false;
