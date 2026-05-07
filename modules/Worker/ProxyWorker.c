@@ -176,6 +176,9 @@ void *worker(void *arg)
     return NULL;
 }
 
+// Conecta al backend seleccionado por el load balancer, envía la petición, recibe la respuesta, y actualiza el ProxyMessage con la respuesta recibida y flags de cacheo/replicación según corresponda
+// Pide: workerArgs - argumentos del worker con LoadBalancer y CacheManager; message - ProxyMessage con la petición a enviar y flags iniciales
+// Retorna: nada (el ProxyMessage se actualiza con la respuesta recibida y flags de cacheo/replicación)
 void ConnectToBackendAndForward(WorkerArgs *workerArgs, ProxyMessage *message)
 {
     if (workerArgs == NULL || message == NULL || message->request == NULL)
@@ -186,6 +189,7 @@ void ConnectToBackendAndForward(WorkerArgs *workerArgs, ProxyMessage *message)
     LoadBalancer *lb = workerArgs->lb;
     BackendNode backend = LoadBalancerSelectBackend(lb);
     IClientSocket *backendSocket = CreateClientSocket(backend.id.ip, backend.id.port, 5000);
+    // Actualiza ProxyMessage con respuesta de error 502 Bad Gateway si no se pudo conectar al backend
     if (backendSocket == NULL)
     {
         message->response.statusCode = 502;
