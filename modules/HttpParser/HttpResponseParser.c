@@ -84,12 +84,14 @@ int ParseHTTPResponseHead(const char *buffer,
         return -1;
     }
 
+    // Cortar la primera línea hasta un máximo de 511 caracteres para evitar overflow
     size_t firstLineLen = (size_t)(firstLineEnd - cursor);
     if (firstLineLen >= 512)
     {
         firstLineLen = 511;
     }
 
+    // Copiar la primera línea a un buffer temporal para parsearla, asegurándonos de que esté null-terminada
     char statusLine[512];
     memcpy(statusLine, cursor, firstLineLen);
     statusLine[firstLineLen] = '\0';
@@ -110,6 +112,7 @@ int ParseHTTPResponseHead(const char *buffer,
         snprintf(statusMessage, statusMessageSize, "%s", reason);
     }
 
+    // Movemos el cursor al inicio de la siguiente línea después del status line para empezar a parsear headers
     cursor = firstLineEnd + 2;
     while (cursor < headEnd)
     {
@@ -167,6 +170,7 @@ int ParseHTTPResponseHead(const char *buffer,
                     valueLen = 255;
                 }
 
+                // Copiar el header al arreglo de headers, asegurándonos de no exceder los límites de tamaño
                 HTTPHeader *header = &headers->headers[headers->count];
                 memcpy(header->key, keyStart, keyLen);
                 header->key[keyLen] = '\0';

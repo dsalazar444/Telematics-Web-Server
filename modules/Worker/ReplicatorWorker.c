@@ -5,18 +5,21 @@
 #include <unistd.h>
 #include <errno.h>
 
-// Helper: parse status code from the start of an HTTP response buffer
+// Helper: Parsea el código de estado de la línea de estado de una respuesta HTTP
+// Recibe: line - la línea de estado completa (ej: "HTTP/1.1 200 OK")
+// Retorna: el código de estado como entero (ej: 200), o -1 si no se pudo parsear
 static int ParseStatusCodeFromStatusLine(const char *line)
 {
-	// Expect: HTTP/1.1 200 OK
 	const char *p = strchr(line, ' ');
 	if (!p) return -1;
-	// skip space
 	p++;
 	int code = atoi(p);
 	return code;
 }
 
+// Worker que se encarga de replicar un mensaje HTTP a un backend específico, con reintentos y marcando el backend como unhealthy si falla
+// Pide: arg - puntero a ReplicatorWorkerArgs con la información de la petición a replicar, el nodo objetivo, el LoadBalancer para marcar unhealthy y el timeout por intento
+// Retorna: NULL (no se espera que termine con un valor)
 void *replicatorWorker(void *arg)
 {
 	ReplicatorWorkerArgs *args = (ReplicatorWorkerArgs*)arg;
@@ -50,23 +53,21 @@ void *replicatorWorker(void *arg)
 			continue;
 		}
 
-		// Read only status line to decide success
-		// Read into small buffer until CRLF
 		char linebuf[1024];
 		size_t filled = 0;
 		int got_line = 0;
 
+		// Lee la primera línea de la respuesta del backend (status line)
+		// Solamente le importa el número de status, así que no necesita leer headers ni body
 		while (filled < sizeof(linebuf) - 1)
 		{
 			int r = RecvFromClient(backendSock, linebuf + filled, 1);
 			if (r < 0)
 			{
-				// read error
 				break;
 			}
 			if (r == 0)
 			{
-				// EOF
 				break;
 			}
 			filled += r;
@@ -81,26 +82,23 @@ void *replicatorWorker(void *arg)
 		int status_code = -1;
 		if (got_line)
 		{
-			// Replace CRLF with NUL
 			if (filled >= 2) linebuf[filled-2] = '\0';
 			status_code = ParseStatusCodeFromStatusLine(linebuf);
 		}
 
 		CloseClientSocket(backendSock);
 
-		if (status_code == 200)
+		if (status_code == 200 || status_code == 201)
 		{
 			success = 1;
 			break;
 		}
 
-		// otherwise retry
 		usleep(100 * 1000);
 	}
 
 	if (!success)
 	{
-		// Mark node as unhealthy in load balancer
 		if (lb != NULL && target.index < lb->BackendCount)
 		{
 			pthread_mutex_lock(&lb->lock);
@@ -110,7 +108,6 @@ void *replicatorWorker(void *arg)
 		}
 	}
 
-	// Free request memory as worker owns it
 	if (req != NULL)
 	{
 		free(req->body);

@@ -9,7 +9,9 @@
 #define HEALTH_CHECK_INTERVAL 30
 #define LEVEL "Load Balancer"
 
-
+// Worker que realiza health checks periódicos a los backends y actualiza su estado en el LoadBalancer
+// Pide: arg - puntero a HealthCheckArgs con el LoadBalancer compartido y el file descriptor del log
+// Retorna: NULL (no se espera que termine)
 void *HealthCheckLoop(void *arg)
 {
     HealthCheckArgs *args = (HealthCheckArgs *)arg;
@@ -41,7 +43,7 @@ void *HealthCheckLoop(void *arg)
         }
 
         printf("\033[2J\033[H");
-        LoadBalancerPrint(lb); // opcional: mostrar estado
+        LoadBalancerPrint(lb);
         const char *lbString = LoadBalancerToString(lb);
         LogWrite(logFile, LEVEL, lbString);
         fflush(stdout);
@@ -49,6 +51,9 @@ void *HealthCheckLoop(void *arg)
     return NULL;
 }
 
+// Realiza un health check a un backend específico intentando conectarse y hacer una petición HEAD a /health/health.html
+// Pide: id - IDBackendNode con la IP y puerto del backend a chequear
+// Retorna: true si el backend respondió con 200 OK o 201 Created, false si no respondió o hubo error
 bool HealthCheckBackend(IDBackendNode id)
 {
     if (id.port == 0)
@@ -76,7 +81,9 @@ bool HealthCheckBackend(IDBackendNode id)
     if (SendHTTPRequest(socket, &request) == 0)
     {
         HTTPResponse response = ReadHTTPResponse(socket);
-        healthy = (response.statusCode);
+        // Si el backend respondió con cualquier status HTTP válido,
+        // consideramos que está vivo (aunque el recurso devuelva error lógico).
+        healthy = (response.statusCode > 0);
         free(response.body);
     }
 

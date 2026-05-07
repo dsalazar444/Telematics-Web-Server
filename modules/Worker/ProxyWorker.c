@@ -183,15 +183,6 @@ void ConnectToBackendAndForward(WorkerArgs *workerArgs, ProxyMessage *message)
         return;
     }
 
-    // Aquí se implementaría la lógica para conectar al backend seleccionado por el LoadBalancer
-    // y reenviar la petición. Esto incluiría:
-    // 1. Seleccionar un backend usando LoadBalancerSelectBackend(workerArgs->lb)
-    // 2. Crear un socket para conectarse al backend
-    // 3. Conectar al backend usando la IP y puerto del BackendNode seleccionado
-    // 4. Enviar la petición al backend
-    // 5. Recibir la respuesta del backend
-    // 6. Reenviar la respuesta al cliente original usando SendToClient(workerArgs->client, ...)
-
     LoadBalancer *lb = workerArgs->lb;
     BackendNode backend = LoadBalancerSelectBackend(lb);
     IClientSocket *backendSocket = CreateClientSocket(backend.id.ip, backend.id.port, 5000);

@@ -59,11 +59,12 @@ int BindSocket(ISocketListener *self, const char *host, int port)
     struct sockaddr_in6 addr;
     memset(&addr, 0, sizeof(addr));
 
+    // Llena los campos necesarios que aun puede (tener en cuenta que esto solo recibe binarios, por lo que solo puede agregar port y el tipo de red)
     addr.sin6_family = AF_INET6;
     addr.sin6_port = htons(port);
 
-    // Es necesario convertir el host a binario para eso se usa inet_pton() que convierte la IP de texto a binario. 
-    // AF_INET6 para IPv6, host es la cadena de texto con la IP, y el ultimo parametro es un puntero a donde se va a guardar la IP en formato binario
+    // Es necesario convertir el host a binario para eso se usa esta funcion
+    // Parametros: AF_INET6 para IPv6, host es la cadena de texto con la IP, y el ultimo parametro es un puntero a donde se va a guardar la IP en formato binario
     if (inet_pton(AF_INET6, host, &addr.sin6_addr) <= 0)
     {
         perror("inet_pton");
@@ -71,6 +72,7 @@ int BindSocket(ISocketListener *self, const char *host, int port)
     }
 
     // Hace la conexion entre el socket y la direccion que se le dio, si es menor a 0 hubo un error
+    // (struct sockaddr *)&addr le dice el tipo, esto debido a que no conoce sockaddr_in6, y sizeof(addr) le dice el tamaño de la estructura
     if (bind(self->fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
     {
         perror("bind");
@@ -80,8 +82,6 @@ int BindSocket(ISocketListener *self, const char *host, int port)
     return 0;
 }
 
-// Deja el socket en modo escucha, con un backlog especificado
-// Retorna 0 si éxito, -1 si error
 int ListenSocket(ISocketListener *self, int backlog)
 {
     if (listen(self->fd, backlog) < 0)
@@ -266,9 +266,11 @@ IClientSocket *CreateClientSocket(const uint8_t ip[4], int port, int timeout_ms)
 // nuevo IClientSocket para la conexión o NULL si hubo error
 IClientSocket *AcceptSocket(ISocketListener *self)
 {
+    // Crea la estructura necesaria para guardar la informacion del cliente que se va a conectar, y un entero con el tamaño de esta estructura
     struct sockaddr_in6 clientAddr;
-    socklen_t addrLen = sizeof(clientAddr); 
+    socklen_t addrLen = sizeof(clientAddr); // Usa este tipo de dato ya que es el estandar y adiccional evita errores
 
+    // Acepta la conexion entrante, y guarda la informacion del cliente en clientAddr, si es menor a 0 hubo un error
     int clientFd = accept(self->fd, (struct sockaddr *)&clientAddr, &addrLen);
     if (clientFd < 0)
     {
@@ -276,7 +278,7 @@ IClientSocket *AcceptSocket(ISocketListener *self)
         return NULL;
     }
 
-    // Crear estructura IClientSocket para el cliente conectado
+    // Crea un nuevo IClientSocket para el cliente conectado
     IClientSocket *client = malloc(sizeof(IClientSocket));
     if (client == NULL)
     {
@@ -319,6 +321,9 @@ void CloseClientSocket(IClientSocket *client)
     free(client);
 }
 
+// Cambia el modo de bloqueo del socket del cliente
+// Pide: client - socket del cliente; enable - 1 para no bloqueante, 0 para bloqueante
+// Retorna: 0 si éxito, -1 si error
 int SetClientNonBlocking(IClientSocket *client, int enable)
 {
     if (client == NULL)
@@ -412,8 +417,12 @@ static char *FindHeadersEnd(const char *buffer, size_t len)
     return NULL;
 }
 
+// Lee un HTTPResponse completo desde el socket, incluyendo status line, headers y body
+// Pide: backend - socket del cliente conectado al backend
+// Retorna: HTTPResponse con los datos leídos; si hubo error, el HTTPResponse tendrá statusCode = 0 y bodyLength = 0
 HTTPResponse ReadHTTPResponse(IClientSocket *backend)
 {
+    // Respuesta final que se devolverá al caller.
     HTTPResponse response = {0};
 
     if (backend == NULL)
@@ -422,22 +431,27 @@ HTTPResponse ReadHTTPResponse(IClientSocket *backend)
         return response;
     }
 
-    // Acumular datos solo para parsear status line + headers.
+    // Acumulador grande para juntar bytes hasta encontrar el final de headers.
     char accumulator[65536];
     size_t accumulatedBytes = 0;
+    // Datos extraídos del status line y de los headers.
     int statusCode = 0;
     char statusMessage[64] = {0};
     HTTPHeaders parsedHeaders = {0};
+    // Flags de control: si ya encontramos el fin de headers y si el parseo salió bien.
     int headersParsed = 0;
     int parseOk = 0;
 
+    // Buffer dinámico para ir guardando el body completo.
     unsigned char *responseBody = NULL;
     size_t responseBodyLength = 0;
     size_t responseBodyCapacity = 0;
 
+    // Buffer temporal para cada lectura del socket.
     char buffer[8192];
     while (1)
     {
+        // Leer el siguiente bloque de bytes del backend.
         int n = RecvFromClient(backend, buffer, sizeof(buffer));
         if (n < 0)
         {
@@ -450,23 +464,25 @@ HTTPResponse ReadHTTPResponse(IClientSocket *backend)
             break;
         }
 
-        // Si aún no hemos parseado los headers, acumular datos
+        // Primero juntamos bytes hasta tener status line + headers completos.
         if (!headersParsed)
         {
-            // Asegurarse de que no hay buffer overflow
+            // No seguir acumulando si ya no cabe nada más.
             if (accumulatedBytes + n > sizeof(accumulator))
             {
                 fprintf(stderr, "ReadHTTPResponse: respuesta muy grande\n");
                 break;
             }
 
+            // Copiar el chunk recién leído al acumulador.
             memcpy(accumulator + accumulatedBytes, buffer, n);
             accumulatedBytes += n;
 
-            // Buscar "\r\n\r\n" que marca el fin de headers
+            // Buscar "\r\n\r\n", que marca el final del bloque de headers HTTP.
             char *headersEnd = FindHeadersEnd(accumulator, accumulatedBytes);
             if (headersEnd)
             {
+                // Ya tenemos headers completos, ahora se puede parsear el head.
                 headersParsed = 1;
 
                 /* Incluir el CRLF final de la última cabecera para que el parser
@@ -488,11 +504,12 @@ HTTPResponse ReadHTTPResponse(IClientSocket *backend)
                     fprintf(stderr, "ReadHTTPResponse: no se pudo parsear el response head\n");
                 }
 
-                // Guardar en body los bytes ya recibidos después de \r\n\r\n
+                // Todo lo que vino después de "\r\n\r\n" pertenece al body.
                 char *bodyStart = headersEnd + 4;
                 size_t bodyChunkLen = (size_t)((accumulator + accumulatedBytes) - bodyStart);
                 if (bodyChunkLen > 0)
                 {
+                    // Crear el body con lo que ya llegó en este mismo chunk.
                     responseBody = malloc(bodyChunkLen);
                     if (responseBody == NULL)
                     {
@@ -509,12 +526,13 @@ HTTPResponse ReadHTTPResponse(IClientSocket *backend)
             }
         }
 
-        // Si headers ya fueron parseados, este chunk pertenece al body.
+        // Si los headers ya fueron parseados, todo lo nuevo pertenece al body.
         if (headersParsed)
         {
             size_t incomingLen = (size_t)n;
             if (incomingLen > 0)
             {
+                // Si no alcanza el buffer actual, crecerlo de forma exponencial.
                 if (responseBodyLength + incomingLen > responseBodyCapacity)
                 {
                     size_t newCapacity = responseBodyCapacity == 0 ? incomingLen : responseBodyCapacity;
@@ -538,12 +556,14 @@ HTTPResponse ReadHTTPResponse(IClientSocket *backend)
                     responseBodyCapacity = newCapacity;
                 }
 
+                // Copiar el nuevo fragmento al final del body acumulado.
                 memcpy(responseBody + responseBodyLength, buffer, incomingLen);
                 responseBodyLength += incomingLen;
             }
         }
     }
 
+    // Si el parseo del head fue correcto, construir la respuesta final.
     if (parseOk)
     {
         BuildHTTPResponse(
@@ -556,6 +576,7 @@ HTTPResponse ReadHTTPResponse(IClientSocket *backend)
     }
     else
     {
+        // Si falló el parseo, liberar cualquier body que ya se haya reservado.
         free(responseBody);
     }
 
