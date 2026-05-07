@@ -9,6 +9,9 @@ static void DecodePercent(char* path);
 static void NormalizePath(char* path);
 static int CheckTraversal(const char* path);
 
+// Parsea y normaliza una URI cruda
+// Pide: rawUri - URI sin procesar
+// Retorna: estructura ParsedURI con el path normalizado, query, y estado de validación
 ParsedURI UriParse(const char* rawUri) {
     // Inicializamos parsedUri
     ParsedURI result;

@@ -1,6 +1,9 @@
 
 #include "HttpResponseParser.h"
 
+// Construye una HTTPResponse a partir de los datos dados y en la estructura definida
+// Pide: response - puntero a HTTPResponse a llenar; statusCode - código de estado HTTP; statusMessage - mensaje de estado (si NULL se obtiene automáticamente); headers - headers a agregar a la respuesta; body - cuerpo de la respuesta; bodyLength - tamaño del cuerpo
+// Retorna: true si se construyó correctamente, false si hubo error
 bool BuildHTTPResponse(HTTPResponse *response,int statusCode,const char *statusMessage,HTTPHeaders *headers,unsigned char *body,size_t bodyLength)
 {
 

@@ -9,13 +9,17 @@
 
 #include "CacheUtils.h"
 
+// Crea un nuevo CacheManager con la configuración dada
+// Pide: cacheDir - directorio donde se almacenará la caché; ttl -
+// tiempo en segundos para que un recurso expire
+// Retorna: puntero al CacheManager creado, o NULL si hubo error
 CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
 {
     CacheManager *cacheManager = malloc(sizeof(*cacheManager));
     if (cacheManager == NULL)
         return NULL;
 
-    // 2. Copiar configuración
+    // Copiar configuración
     cacheManager->cacheDir = strdup(cacheDir);
     if (cacheManager->cacheDir == NULL)
     {
@@ -28,11 +32,11 @@ CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
 
     fprintf(stderr, "CacheManager creado con directorio '%s' y TTL %d segundos\n", cacheDir, ttl);
 
-    // 3. Reservar memoria para el índice en RAM
+    // Reservar memoria para el índice en RAM
     cacheManager->table = NULL;
     cacheManager->entryCount = 0;
 
-    // 4. Crear directorio si no existe
+    // Crear directorio si no existe
     struct stat st = {0};
     if (stat(cacheDir, &st) == -1)
     {
@@ -62,9 +66,10 @@ CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
         cacheManager->cacheDir = resolvedDir;
     }
 
+    // Carga datos desde el disco a la RAM
     cacheLoadFromDisk(cacheManager);
 
-    // 5. Inicializar mutex
+    // Inicializar mutex
     if (pthread_mutex_init(&cacheManager->lock, NULL) != 0)
     {
         free(cacheManager->cacheDir);
@@ -73,6 +78,7 @@ CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
         return NULL;
     }
 
+    // Inicializa worker de limpieza
     pthread_t cleanUpThread;
     if (pthread_create(&cleanUpThread, NULL, CacheCleanupWorker, cacheManager) != 0)
     {
@@ -80,11 +86,15 @@ CacheManager *CacheManagerCreate(const char *cacheDir, uint16_t ttl)
         FreeCacheManager(cacheManager);
         return NULL;
     }
-    pthread_detach(cleanUpThread); // Corre independientemente
+    pthread_detach(cleanUpThread); 
 
     return cacheManager;
 }
 
+// Genera el cacheKey a partir de la información de la request (método, host, path) y validando que sea cacheable
+// Pide: request - puntero a la HTTPRequest; outKey - buffer para almacenar
+// el cacheKey generado; outKeyLen - tamaño del buffer outKey (debe ser al menos 33 bytes para MD5)
+// Retorna: true si se pudo generar un cacheKey válido, false si no es cache
 bool cacheKeyFromRequest(const HTTPRequest *request, char *outKey, size_t outKeyLen)
 {
     // MD5 hash siempre produce 32 caracteres + null terminator
@@ -110,20 +120,23 @@ bool cacheKeyFromRequest(const HTTPRequest *request, char *outKey, size_t outKey
         return false; // No se puede generar clave sin host
     }
 
-    // 4. Construir raw key
+    // Construir raw key
     char key[512];
     snprintf(key, sizeof(key), "%s|%s|%s",
              MethodToString(request->method),
              host,
              request->path);
 
-    // 5. Hashear con MD5
+    // Hashear con MD5
     MD5Hash(key, outKey);
 
     return true;
 }
 
 
+// Almacena en caché una respuesta HTTP
+// Pide: cache - puntero al CacheManager; cacheKey - clave de caché a usar; rawKey - clave sin hashear (para metadata); response - respuesta HTTP a almacenar
+// Retorna: true si se almacenó correctamente, false si hubo error
 bool CacheStore(CacheManager *cache, const char *cacheKey, const char *rawKey, const HTTPResponse *response)
 {
     if (!cache || !cacheKey || !response)
@@ -134,6 +147,7 @@ bool CacheStore(CacheManager *cache, const char *cacheKey, const char *rawKey, c
     char cachePath[512];
     BuildPath(cache, cacheKey, "", cachePath, sizeof(cachePath));
 
+    // Abre el archivo en escritura de binario
     FILE *file = fopen(cachePath, "wb");
     if (!file)
     {
@@ -142,12 +156,14 @@ bool CacheStore(CacheManager *cache, const char *cacheKey, const char *rawKey, c
         return false;
     }
 
+    // Escribe la metadata y el body en el archivo de caché
     if (!CacheWriteFile(file, cache, rawKey, response))
         goto error;
 
     fclose(file);
     file = NULL;
 
+    // Agrega a RAM para que futuras consultas puedan encontrarlo sin ir al disco
     if (!CacheAddFromDisk(cache, cacheKey, time(NULL)))
     {
         fprintf(stderr, "cache_store: no se pudo agregar %s al indice en RAM\n", cacheKey);
@@ -168,6 +184,9 @@ error:
     return false;
 }
 
+// Sirve archivos desde el cache
+// Pide: cache - puntero al CacheManager; cacheKey - clave de caché a buscar; response - puntero a HTTPResponse donde se almacenará la respuesta leída de caché
+// Retorna: true si se encontró una entrada válida en caché y se llenó response
 bool CacheLookUp(CacheManager *cache, const char *cacheKey, HTTPResponse *response)
 {
     if (!cache || !cacheKey || !response)
@@ -175,21 +194,26 @@ bool CacheLookUp(CacheManager *cache, const char *cacheKey, HTTPResponse *respon
 
     pthread_mutex_lock(&cache->lock);
 
+    // Buscar la entrada en RAM
     CacheEntry *entry = CacheFindEntry(cache, cacheKey);
     if (!entry)
         goto miss;
 
+    // Verificar si la entrada en RAM ha expirado. Si expiró, eliminarla de RAM y disco y tratar como miss
     if (!ExpireFileCache(cache, entry, cacheKey))
         goto miss;
 
+    // Lee metadata y headers
     CacheMeta meta;
     if (!CacheReadMeta(cache, cacheKey, &meta))
         goto miss;
 
+    // Lee el body del archivo de caché
     unsigned char *body = CacheReadBody(cache, cacheKey, meta.contentLength);
     if (!body)
         goto miss;
 
+    // Construye la respuesta HTTP a partir de la metadata y el body leídos de caché
     if (!BuildHTTPResponse(response, meta.statusCode, NULL, &meta.extraHeaders, body, meta.contentLength))
     {
         free(body);
@@ -204,6 +228,9 @@ miss:
     return false;
 }
 
+// Almacena en caché una respuesta HTTP de forma asíncrona, delegando el trabajo a un worker
+// Pide: cacheManager - puntero al CacheManager; proxyMessage - mensaje del proxy
+// Retorna: nada
 void CacheStoreAsync(CacheManager *cacheManager, ProxyMessage *proxyMessage)
 {
     if (cacheManager == NULL || proxyMessage == NULL || proxyMessage->request == NULL)
@@ -213,6 +240,7 @@ void CacheStoreAsync(CacheManager *cacheManager, ProxyMessage *proxyMessage)
     if (host == NULL)
         return;
 
+    // Recostruye la cacheKey original a partir de la request para que el worker pueda generar el mismo cacheKey y almacenarlo correctamente
     char rawKey[512];
     snprintf(rawKey, sizeof(rawKey), "%s|%s|%s",
              MethodToString(proxyMessage->request->method),
@@ -238,10 +266,14 @@ void CacheStoreAsync(CacheManager *cacheManager, ProxyMessage *proxyMessage)
 }
 
 
+// Invalida una entrada de caché tanto en RAM como en disco
+// Pide: cache - puntero al CacheManager; cacheKey - clave de caché a invalidar
+// Retorna: nada
 void cacheInvalidate(CacheManager *cache, const char *cacheKey)
 {
     pthread_mutex_lock(&cache->lock);
 
+    // Buscar la entrada en RAM y eliminarla de RAM y disco
     CacheEntry *entry = NULL;
     HASH_FIND_STR(cache->table, cacheKey, entry);
     if (entry != NULL)
@@ -283,17 +315,12 @@ void CacheInvalidateByRequest(CacheManager *cache, const HTTPRequest *request) {
     cacheInvalidate(cache, cacheKey);
 }
 
-// Falta destruir el mutex correctamente
-// Actualmente llama pthread_mutex_destroy pero NO hace lock/unlock
-// Debería ser así:
-
+// Libera toda la memoria asociada al CacheManager, incluyendo el índice en RAM y el directorio en disco
 void FreeCacheManager(CacheManager *cacheManager)
 {
     if (cacheManager == NULL)
         return;
 
-    // No hace falta lock aquí porque es destrucción final,
-    // pero sí hay que asegurarse que nadie más lo usa antes de llamar esto
     pthread_mutex_destroy(&cacheManager->lock);
 
     if (cacheManager->table != NULL)

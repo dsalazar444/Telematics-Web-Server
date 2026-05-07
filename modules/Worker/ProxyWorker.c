@@ -135,13 +135,13 @@ void *worker(void *arg)
             }
         }
 
-        // 6. MISS — ir al backend
+        // MISS — ir al backend
         ConnectToBackendAndForward(workerArgs, proxyMessage);
 
-        // 7. Enviar respuesta al cliente
+        //  Enviar respuesta al cliente
         SendHTTPResponse(client, &proxyMessage->response);
 
-        // 8. Invalidar caché si es POST exitoso
+        // Invalidar caché si es POST exitoso
         if (request->method == POST && proxyMessage->response.statusCode == 200)
         {
             if (cacheManager != NULL)
@@ -150,7 +150,7 @@ void *worker(void *arg)
             }
         }
 
-        // 9. Cachear en background si aplica
+        // Cachear en background si aplica
         bool bodyOwnedByCacheThread = false;
         if (proxyMessage->shouldCache && proxyMessage->response.statusCode == 200)
         {
@@ -158,7 +158,7 @@ void *worker(void *arg)
             bodyOwnedByCacheThread = true;
         }
 
-        // 10. Liberar
+        // Liberar
         if (!bodyOwnedByCacheThread)
         {
             free(proxyMessage->response.body);
@@ -170,7 +170,7 @@ void *worker(void *arg)
         memset(requestBuffer, 0, sizeof(requestBuffer));
     }
 
-    // 11. Cerrar conexión
+    // Cerrar conexión
     CloseClientSocket(client);
     free(workerArgs);
     return NULL;
