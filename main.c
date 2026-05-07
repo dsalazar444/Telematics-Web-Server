@@ -13,8 +13,10 @@
 #define LEVEL "Main"
 int main()
 {
+    // Cargar configuración
     Config config = LoadConfig("../Config/proxy.config");
 
+    // Crea socket de escucha
     ISocketListener listener;
     listener.fd = CreateDualStackSocket();
     if (listener.fd < 0)
@@ -62,8 +64,8 @@ int main()
 
         WorkerArgs *args = malloc(sizeof(WorkerArgs));
         args->client = client;
-        args->lb = lb; // mismo puntero para todos
-        args->cacheManager = cacheManager; // pasar el puntero a la caché
+        args->lb = lb; 
+        args->cacheManager = cacheManager; 
         args->logFile = logFile;
         pthread_t thread;
         pthread_create(&thread, NULL, worker, args);

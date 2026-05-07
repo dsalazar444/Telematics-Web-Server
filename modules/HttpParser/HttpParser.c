@@ -6,6 +6,9 @@
 
 static const char *FindHeader(const HTTPHeaders *headers, const char *key);
 
+// Parsea un buffer de request HTTP y construye una estructura HTTPRequest
+// Pide: buffer - datos recibidos; headerSize - tamaño de headers; contentLength
+// Retorna: puntero a HTTPRequest si se parsea correctamente, NULL si hay error (y statusCode se establece con el código de error)
 HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t contentLength, unsigned short *statusCode)
 {
     HTTPRequest *request = malloc(sizeof(HTTPRequest));
@@ -37,6 +40,7 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
     memcpy(requestLine, buffer, requestLineLen);
     requestLine[requestLineLen] = '\0';
 
+    // Obtiene metodo
     char method[16] = {0};
     if (sscanf(requestLine, "%15s %255s %9s", method, request->path, request->version) != 3)
     {
@@ -53,7 +57,7 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
         return NULL;
     }
 
-    // Agregar uriParser
+    // Parsea la uri
     ParsedURI parsedURI = UriParse(request->path);
     if (!parsedURI._isValid)
     {
@@ -68,6 +72,7 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
         snprintf(request->path, sizeof(request->path), "%s/index.html", request->path);
     }
 
+    // Parsea los headers y los agrupa
     char headersCopy[headerSize + 1];
     memcpy(headersCopy, buffer, headerSize); 
     headersCopy[headerSize] = '\0';
@@ -97,6 +102,7 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
             return NULL;
         }
 
+        // Construye el header actual y lo agrega a la lista de headers
         HTTPHeader *header = &request->headers.headers[request->headers.count];
 
         const char *colon = memchr(lineStart, ':', (size_t)(lineEnd - lineStart));
@@ -130,6 +136,7 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
         lineStart = lineEnd + 2;
     }
 
+    // Verifica la version del protocolo
     if (strcmp(request->version, "HTTP/1.1") == 0 && FindHeader(&request->headers, "Host") == NULL)
     {
         *statusCode = 400;  // HTTP/1.1 requiere Host
@@ -140,10 +147,10 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
     request->body = NULL;
     request->bodyLength = 0; 
 
+    // Lee el body y lo asigna al buffer y lo agrega a la estructura HTTPRequest
     if (contentLength > 0 && contentLength < 1024 * 1024) 
     {
         const unsigned char *bodyStart = (const unsigned char *)buffer + headerSize;
-
         request->body = malloc(contentLength); 
         if (request->body == NULL)
         {
@@ -159,6 +166,7 @@ HTTPRequest *ParseHTTPRequest(const char *buffer, int headerSize, size_t content
     return request;
 }
 
+// Obtiene un header específico por su nombre (case-insensitive) de una lista de headers
 static const char *FindHeader(const HTTPHeaders *headers, const char *key)
 {
     for (size_t i = 0; i < headers->count; i++)
@@ -172,6 +180,7 @@ static const char *FindHeader(const HTTPHeaders *headers, const char *key)
     return NULL;
 }
 
+// Trasforma un string de método HTTP en su valor enum correspondiente
 HTTPMethod ParseMethod(const char *method)
 {
     if (strcasecmp(method, "GET") == 0)

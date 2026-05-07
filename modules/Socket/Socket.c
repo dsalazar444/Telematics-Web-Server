@@ -15,6 +15,9 @@
 #include "../HttpParser/HttpResponseParser.h"
 #include "../HttpParser/HttpParser.h"
 
+// Cambie el estado de IPv6ONLY del socket para aceptar o no conexiones IPv4
+// Pide: fd - file descriptor del socket; enable - 1 para activar dual-stack, 0 para solo IPv6
+// Retorna: 0 si éxito, -1 si error
 int SetIPv6Only(int fd, int enable)
 {
     int opt = enable;
@@ -27,6 +30,9 @@ int SetIPv6Only(int fd, int enable)
     return 0;
 }
 
+// Crea un socket IPv6 y cambia el estado a dual-stack (IPv4 y IPv6)
+// Pide: nada
+// Retorna: file descriptor del socket creado, o -1 si error
 int CreateDualStackSocket()
 {
     int fd = socket(AF_INET6, SOCK_STREAM, 0);
@@ -45,18 +51,19 @@ int CreateDualStackSocket()
     return fd;
 }
 
+// Hace Bind del socket a la dirección y puerto especificados
+// Retorna 0 si éxito, -1 si error
 int BindSocket(ISocketListener *self, const char *host, int port)
 {
     // Estructura de sockets que necesita POSIX para bind()
     struct sockaddr_in6 addr;
     memset(&addr, 0, sizeof(addr));
 
-    // Llena los campos necesarios que aun puede (tener en cuenta que esto solo recibe binarios, por lo que solo puede agregar port y el tipo de red)
     addr.sin6_family = AF_INET6;
     addr.sin6_port = htons(port);
 
-    // Es necesario convertir el host a binario para eso se usa esta funcion
-    // Parametros: AF_INET6 para IPv6, host es la cadena de texto con la IP, y el ultimo parametro es un puntero a donde se va a guardar la IP en formato binario
+    // Es necesario convertir el host a binario para eso se usa inet_pton() que convierte la IP de texto a binario. 
+    // AF_INET6 para IPv6, host es la cadena de texto con la IP, y el ultimo parametro es un puntero a donde se va a guardar la IP en formato binario
     if (inet_pton(AF_INET6, host, &addr.sin6_addr) <= 0)
     {
         perror("inet_pton");
@@ -64,7 +71,6 @@ int BindSocket(ISocketListener *self, const char *host, int port)
     }
 
     // Hace la conexion entre el socket y la direccion que se le dio, si es menor a 0 hubo un error
-    // (struct sockaddr *)&addr le dice el tipo, esto debido a que no conoce sockaddr_in6, y sizeof(addr) le dice el tamaño de la estructura
     if (bind(self->fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
     {
         perror("bind");
@@ -74,6 +80,8 @@ int BindSocket(ISocketListener *self, const char *host, int port)
     return 0;
 }
 
+// Deja el socket en modo escucha, con un backlog especificado
+// Retorna 0 si éxito, -1 si error
 int ListenSocket(ISocketListener *self, int backlog)
 {
     if (listen(self->fd, backlog) < 0)
@@ -84,6 +92,9 @@ int ListenSocket(ISocketListener *self, int backlog)
     return 0;
 }
 
+// Cierra el socket de escucha
+// Pide: listener - socket de escucha a cerrar
+// Retorna: nada
 void CloseListenerSocket(ISocketListener *listener)
 {
     if (listener == NULL)
@@ -251,13 +262,13 @@ IClientSocket *CreateClientSocket(const uint8_t ip[4], int port, int timeout_ms)
     return clientSocket;
 }
 
+// Acepta una conexión entrante en el socket de escucha, retorna un 
+// nuevo IClientSocket para la conexión o NULL si hubo error
 IClientSocket *AcceptSocket(ISocketListener *self)
 {
-    // Crea la estructura necesaria para guardar la informacion del cliente que se va a conectar, y un entero con el tamaño de esta estructura
     struct sockaddr_in6 clientAddr;
-    socklen_t addrLen = sizeof(clientAddr); // Usa este tipo de dato ya que es el estandar y adiccional evita errores
+    socklen_t addrLen = sizeof(clientAddr); 
 
-    // Acepta la conexion entrante, y guarda la informacion del cliente en clientAddr, si es menor a 0 hubo un error
     int clientFd = accept(self->fd, (struct sockaddr *)&clientAddr, &addrLen);
     if (clientFd < 0)
     {
@@ -265,7 +276,7 @@ IClientSocket *AcceptSocket(ISocketListener *self)
         return NULL;
     }
 
-    // Crea un nuevo IClientSocket para el cliente conectado
+    // Crear estructura IClientSocket para el cliente conectado
     IClientSocket *client = malloc(sizeof(IClientSocket));
     if (client == NULL)
     {
@@ -277,6 +288,7 @@ IClientSocket *AcceptSocket(ISocketListener *self)
     return client;
 }
 
+// Recibe datos del cliente, retorna número de bytes leídos o -1 si error
 int RecvFromClient(IClientSocket *client, char *buf, int size)
 {
     int bytesRead = recv(client->fd, buf, size, 0);
@@ -288,6 +300,7 @@ int RecvFromClient(IClientSocket *client, char *buf, int size)
     return bytesRead;
 }
 
+// Envía datos al cliente, retorna número de bytes enviados o -1 si error
 int SendToClient(IClientSocket *client, const char *data, int size)
 {
     int bytesSent = send(client->fd, data, size, 0);
@@ -299,6 +312,7 @@ int SendToClient(IClientSocket *client, const char *data, int size)
     return bytesSent;
 }
 
+// Cierra el socket del cliente y libera la estructura
 void CloseClientSocket(IClientSocket *client)
 {
     close(client->fd);

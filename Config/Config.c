@@ -3,6 +3,8 @@
 #include <string.h>
 #include "Config.h"
 
+// Carga la configuración desde el archivo config.config agregandola a la estructura
+// Config. Para ello lee el archivo línea por línea, parsea cada línea y asigna los valores a la estructura.
 Config LoadConfig(const char *filepath)
 {
     Config config = {0};
@@ -36,6 +38,8 @@ Config LoadConfig(const char *filepath)
     // Volver al inicio del archivo para leer de nuevo
     rewind(file);
 
+    // Leer el archivo línea por línea y parsear cada línea buscando las palabras
+    // clave para obtener su valor y asignarlo a la estructura Config
     while (fgets(line, sizeof(line), file) != NULL)
     {
         if (line[0] == '#' || line[0] == '\n')
@@ -55,17 +59,6 @@ Config LoadConfig(const char *filepath)
             continue;
         }
 
-        if (strncmp(line, "LOG_FILE_WS=", 12) == 0)
-        {
-            char *value = line + 12;
-            size_t len = strcspn(value, "\r\n");
-            value[len] = '\0';
-            free(config.logFileWs);
-            config.logFileWs = strdup(value);
-            continue;
-        }
-
-
         if (strncmp(line, "LOG_FILE_PROXY=", 15) == 0)
         {
             char *value = line + 15;
@@ -80,7 +73,6 @@ Config LoadConfig(const char *filepath)
         if (strncmp(line, "BACKEND_NODE=", 13) == 0 && config.backends)
         {
             char *value = line + 13;
-            // Eliminar salto de línea al final si existe
             size_t len = strcspn(value, "\r\n");
             value[len] = '\0';
             config.backends[config.backendCount] = strdup(value);
